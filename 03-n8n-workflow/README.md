@@ -7,7 +7,8 @@ with one rule that matters: **a car with an open "do not drive" recall never get
 markdown recommendation.** You do not discount a car you should not be retailing.
 
 **Workflow:** [`nightly-markdown-review.json`](./nightly-markdown-review.json) ·
-**Scoring logic, readable on its own:** [`scoring.js`](./scoring.js) ·
+**Code nodes, readable outside the JSON:** [`scoring.js`](./scoring.js),
+[`digest.js`](./digest.js), [`blocked-alert.js`](./blocked-alert.js) ·
 **Build log:** [BUILD_LOG.md](./BUILD_LOG.md)
 
 ---
