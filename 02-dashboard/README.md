@@ -300,8 +300,10 @@ you judge the app.
   Deliberate — see the backend choice above.
 - **Dealer settings have no UI yet.** The daily holding rate is seeded and editable in
   the database, not in the app.
-- **Seeded VINs are synthetic** and will not decode in the recall checker in
-  `../01-web-app`.
+- **Seeded VINs are synthetic**, but most of them do decode: the recall checker in
+  `../01-web-app` resolves the BMW to a 2016 328i and the Toyota to a 2009 Prius, each
+  flagged with a check-digit warning because the ninth character does not calculate.
+  Treat the decoded make and model as plausible rather than authoritative.
 - **The boundary check covers the PostgREST surface only** — what a browser can reach.
   Direct database connections are protected by the database password instead. See
   `docs/security-boundary.md` for the full list of what is not covered.

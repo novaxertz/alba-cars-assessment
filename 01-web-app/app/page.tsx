@@ -1,5 +1,5 @@
 import { Suspense } from 'react';
-import { Lookup } from '@/components/Lookup';
+import { Workspace } from '@/components/Workspace';
 import { LookupSkeleton } from '@/components/Skeletons';
 import { summariesEnabled } from '@/lib/summarise';
 
@@ -27,7 +27,7 @@ export default function Home() {
       </header>
 
       <Suspense fallback={<LookupSkeleton />}>
-        <Lookup />
+        <Workspace />
       </Suspense>
 
       <footer className="mt-10 border-t border-hairline pt-5 text-[12px] leading-relaxed text-ink-muted">

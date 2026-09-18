@@ -169,7 +169,10 @@ test that found the trigger bug above — the seed could never have found it.
 - `margin_at_list_aed` ignores reconditioning, registration and transport costs, so it
   is optimistic in absolute terms. It is still directionally right, which is what the
   ageing comparison needs.
-- Seeded VINs are synthetic and will not decode in the task-01 recall lookup.
+- Seeded VINs are synthetic, but most decode anyway — task 01's checker resolves the
+  BMW to a 2016 328i and the Toyota to a 2009 Prius, both with a check-digit warning.
+  Corrected here after actually trying it; the earlier claim that they would not decode
+  was wrong.
 - The boundary check covers the PostgREST surface only — see `docs/security-boundary.md`
   for what it does not cover.
 - **No dark mode.** A second palette validated against a dark surface is real work, and
