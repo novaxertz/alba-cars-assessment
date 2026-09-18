@@ -144,6 +144,82 @@ quietly.
 
 ---
 
+## Sample from a successful run
+
+Verbatim from Discord. **First run:**
+
+```
+Do not retail - open "do not drive" recalls
+
+- 2006 Ford Ranger (1FTZR45E36PA12345)
+  4 "do not drive" recall(s) open - 104 days on the lot - asking AED 24,000
+  Get the recall closed before this is listed. No markdown recommended.
+
+Recall data from NHTSA, by make/model/year. Confirm with the manufacturer whether
+this specific car has already been repaired.
+```
+
+```
+Nightly markdown review - 2026-09-18
+8 vehicles past 30 days. 8 new recommendation(s) recorded, 0 already recorded today.
+
+1 vehicle(s) held back for open "do not drive" recalls - posted separately.
+
+Over 90 days (3)
+- 2016 Lexus ES 350 (21100A) - 148d - AED 47,500 -> AED 45,500 (-AED 2,000)
+- 2018 Chevrolet Malibu (D10022) - 134d - AED 33,000 -> AED 31,500 (-AED 1,500)
+- 2018 Porsche 718 Cayman (L13322) - 121d - AED 219,000 -> AED 197,000 (-AED 22,000)
+
+Watch list (5)
+- 2017 Land Rover Range Rover (A50021) - 86d - AED 159,000 -> AED 149,500 (-AED 9,500)
+- 2018 Hyundai Elantra (U11934) - 73d - AED 31,000 -> AED 29,000 (-AED 2,000)
+- 2018 Ford F-150 (A22871) - 58d - AED 63,000 -> AED 61,000 (-AED 2,000)
+- 2019 Mitsubishi Pajero (H00931) - 52d - AED 68,000 -> AED 66,000 (-AED 2,000)
+- 2019 BMW 320i (T10093) - 44d - AED 69,500 -> AED 67,500 (-AED 2,000)
+
+Total proposed reduction: AED 43,000. Nothing has been applied - these are
+recommendations for a human to approve.
+Recall status unavailable for 6 vehicle(s); treated as unknown, not clear.
+```
+
+**Second run, immediately after, nothing else changed — this is the idempotency proof:**
+
+```
+Nightly markdown review - 2026-09-18
+8 vehicles past 30 days. 0 new recommendation(s) recorded, 8 already recorded today.
+```
+
+The rest of the message is identical. The database agrees: 8 rows, 8 distinct vehicles,
+one `run_date`, and `created_at` unchanged across three runs.
+
+**And the handled failure path, from a real failure** (the Supabase credential was not
+attached after an import):
+
+```
+Nightly markdown review FAILED
+Stage: Fetch aged inventory
+Error: Credentials not found
+Next: Attach the Supabase credential to the Supabase nodes, then run again.
+
+No recommendations were recorded for this run. Re-running today is safe - the unique
+constraint on (vehicle, run date) means a partial run cannot create duplicates.
+```
+
+That alert was not staged. It is what the workflow actually sent when it broke.
+
+Three things worth noticing in that output:
+
+1. **The Ranger is in the first message and absent from the second.** A car with four
+   open "do not drive" recalls is not a pricing problem.
+2. **"Recall status unavailable for 6 vehicle(s); treated as unknown, not clear."** Most
+   demo VINs are synthetic and do not decode. The workflow says so rather than implying
+   a clean bill of health.
+3. **The Lexus is cut by 2,000 AED, not 4,750.** It is already under water, so the
+   markdown is capped — cutting deeper on a car that cannot cover its cost only deepens
+   the loss.
+
+---
+
 ## Known limitations
 
 - **n8n Cloud trial** — the live instance expires. This JSON and these notes are the
