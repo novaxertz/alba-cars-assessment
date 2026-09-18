@@ -91,6 +91,12 @@ body {
   animation: sweep 1.15s ease-in-out infinite;
 }
 
+/* Bars grow from the baseline. scaleY is composited; animating height is not. */
+@keyframes grow {
+  from { transform: scaleY(0); }
+  to   { transform: scaleY(1); }
+}
+
 @keyframes shimmer {
   from { background-position: -340px 0; }
   to   { background-position: 340px 0; }
@@ -114,6 +120,7 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .lift, .skeleton, .alarm { animation: none; }
+  svg rect { animation: none !important; transform: none !important; }
   .sweep-rail::after { animation: none; transform: translate3d(0,0,0); width: 100%; opacity: 0.4; }
   * { transition-duration: 1ms !important; }
 }

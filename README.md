@@ -9,7 +9,7 @@ checks the same cars for open safety recalls before they are listed.
 
 | | Project | Live | Repo | Video |
 |---|---|---|---|---|
-| 01 | **Recall Radar** — VIN decode + open safety recalls, on a Next.js BFF | [alba-recall-radar.vercel.app](https://alba-recall-radar.vercel.app) | [`/01-web-app`](./01-web-app) | _pending_ |
+| 01 | **Second Opinion** — what owners report vs what was recalled | [alba-second-opinion.vercel.app](https://alba-second-opinion.vercel.app) | [`/01-web-app`](./01-web-app) | _pending_ |
 | 02 | **Lot** — inventory ageing & price decay | [alba-lot-dashboard.vercel.app](https://alba-lot-dashboard.vercel.app) | [`/02-dashboard`](./02-dashboard) | _pending_ |
 | 03 | **Markdown agent** — nightly ageing review | _pending_ | [`/03-n8n-workflow`](./03-n8n-workflow) | _pending_ |
 
@@ -44,14 +44,18 @@ Supabase · auth + row-level security + analytics computed in Postgres ·
 
 ---
 
-## 01 — Recall Radar · open safety recalls by VIN
+## 01 — Second Opinion · what owners report vs what was recalled
 
-**The problem.** Before a used car is listed, somebody should check whether it carries an
-open safety recall. An unrepaired recall is a liability to sell and a lever when buying.
+**The problem.** A recall list tells you what a manufacturer was forced to admit. It does
+not tell you what the car does in the hands of the people who own it. NHTSA publishes
+both datasets and nobody puts them side by side — so the faults owners keep reporting
+that were *never* recalled stay invisible, and those are the ones with no free remedy
+and no paper trail.
 
 **Try it with nothing configured** — no sign-up, no keys:
-[`1FTZR45E36PA12345`](https://alba-recall-radar.vercel.app/?vin=1FTZR45E36PA12345), a
-2006 Ford Ranger with four "do not drive" recalls.
+[`1FTZR45E36PA12345`](https://alba-second-opinion.vercel.app/?vin=1FTZR45E36PA12345), a
+2006 Ford Ranger — four "do not drive" recalls, 271 owner complaints, 4 deaths, and
+**35% of complaints against components with no recall campaign at all**.
 
 Next.js route handlers as a backend-for-frontend · two NHTSA APIs fused server-side ·
 per-resource cache TTLs, request coalescing, retry with backoff, and stale-but-labelled

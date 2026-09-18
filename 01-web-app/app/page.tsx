@@ -8,15 +8,15 @@ export default function Home() {
     <main className="mx-auto w-full max-w-[720px] flex-1 px-5 py-10 sm:py-14">
       <header className="mb-7">
         <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-ink-muted">
-          Recall Radar
+          Second Opinion
         </p>
         <h1 className="mt-2 text-[30px] leading-[1.1] font-semibold tracking-tight sm:text-[38px]">
-          Does this car have an open safety recall?
+          What the manufacturer admitted, and what owners actually report.
         </h1>
-        <p className="mt-3 max-w-[54ch] text-[15px] leading-relaxed text-ink-secondary">
-          Decode a VIN and check it against NHTSA&rsquo;s recall database before the car goes on
-          the forecourt. An unrepaired recall is a liability to sell — and a negotiating lever
-          when you&rsquo;re the one buying.
+        <p className="mt-3 max-w-[56ch] text-[15px] leading-relaxed text-ink-secondary">
+          Paste a VIN. You get the open safety recalls — and the complaints owners filed that
+          were <em className="text-ink not-italic">never</em> recalled. The gap between the two is
+          what to have inspected before you buy.
         </p>
         {!summariesEnabled() && (
           <p className="mt-2 text-[12px] text-ink-muted">

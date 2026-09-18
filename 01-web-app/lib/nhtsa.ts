@@ -14,6 +14,8 @@
  *    defensive, for when the upstream misbehaves — not a response to a limit I measured.
  */
 
+import type { Complaint } from './analysis';
+
 const VPIC = 'https://vpic.nhtsa.dot.gov/api/vehicles';
 const RECALLS = 'https://api.nhtsa.gov/recalls';
 
@@ -218,6 +220,35 @@ export async function fetchRecalls(make: string, model: string, year: string): P
       if (order[a.severity] !== order[b.severity]) return order[a.severity] - order[b.severity];
       return (b.reportReceivedDate ?? '').localeCompare(a.reportReceivedDate ?? '');
     });
+}
+
+/**
+ * Owner complaints for a model-year. This is the dataset that makes the app an
+ * assessment rather than a lookup: recalls are what the manufacturer admitted,
+ * complaints are what owners actually experienced, and the gap between them is the
+ * product. See lib/analysis.ts.
+ */
+export async function fetchComplaints(make: string, model: string, year: string): Promise<Complaint[]> {
+  const url = `${RECALLS.replace('/recalls', '/complaints')}/complaintsByVehicle?make=${encodeURIComponent(make.toLowerCase())}&model=${encodeURIComponent(model.toLowerCase())}&modelYear=${encodeURIComponent(year)}`;
+
+  const response = await fetchWithBackoff(url);
+  const body = await response.json();
+  const rows: unknown[] = body?.results ?? [];
+
+  return rows.map((row) => {
+    const r = row as Record<string, unknown>;
+    const bool = (v: unknown) => v === true || v === 'true';
+    return {
+      odiNumber: Number(r.odiNumber) || 0,
+      components: String(r.components ?? 'UNKNOWN'),
+      summary: String(r.summary ?? ''),
+      dateComplaintFiled: String(r.dateComplaintFiled ?? ''),
+      crash: bool(r.crash),
+      fire: bool(r.fire),
+      injuries: Number(r.numberOfInjuries) || 0,
+      deaths: Number(r.numberOfDeaths) || 0,
+    } satisfies Complaint;
+  });
 }
 
 /** 17 characters, no I/O/Q — those are excluded from the VIN alphabet to avoid confusion. */

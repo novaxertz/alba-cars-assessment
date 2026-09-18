@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cached } from '@/lib/cache';
-import { decodeVin, fetchRecalls, normaliseVin, UpstreamError, VinDecodeError } from '@/lib/nhtsa';
+import { decodeVin, fetchComplaints, fetchRecalls, normaliseVin, UpstreamError, VinDecodeError } from '@/lib/nhtsa';
+import { analyse } from '@/lib/analysis';
 import { summariesEnabled, summariseRecall } from '@/lib/summarise';
 
 /**
@@ -25,6 +26,7 @@ import { summariesEnabled, summariseRecall } from '@/lib/summarise';
 
 const DECODE_TTL = 30 * 24 * 60 * 60 * 1000; // effectively immutable
 const RECALL_TTL = 6 * 60 * 60 * 1000;       // campaigns change monthly at most
+const COMPLAINT_TTL = 12 * 60 * 60 * 1000;  // owners file these continuously, but slowly
 const MAX_SWEEP = 12;
 
 export async function GET(request: Request) {
@@ -47,6 +49,19 @@ export async function GET(request: Request) {
       fetchRecalls(vehicle.make, vehicle.model, vehicle.modelYear),
     );
 
+    // Complaints are fetched in parallel with nothing else pending, and failure here is
+    // survivable: the recall answer is still worth showing without the analysis.
+    let analysis = null;
+    let analysisFailed = false;
+    try {
+      const complaints = await cached(`complaints:${recallsKey}`, COMPLAINT_TTL, () =>
+        fetchComplaints(vehicle.make, vehicle.model, vehicle.modelYear),
+      );
+      analysis = analyse(recalls.value, complaints.value);
+    } catch {
+      analysisFailed = true;
+    }
+
     const summaries =
       withSummaries && summariesEnabled()
         ? await Promise.all(recalls.value.slice(0, 6).map((r) => summariseRecall(r)))
@@ -56,6 +71,8 @@ export async function GET(request: Request) {
       {
         vehicle,
         recalls: recalls.value,
+        analysis,
+        analysisFailed,
         summaries,
         summariesFrom: summariesEnabled() ? 'model' : 'nhtsa',
         cache: {

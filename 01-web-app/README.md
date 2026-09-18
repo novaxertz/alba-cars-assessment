@@ -1,17 +1,27 @@
-# Recall Radar
+# Second Opinion
 
-**Does this car have an open safety recall?**
+**What the manufacturer admitted, and what owners actually report.**
 
-Decode a VIN and check it against NHTSA's recall database before the car goes on the
-forecourt. An unrepaired recall is a liability to sell, a disclosure problem, and a
-negotiating lever when you are the one buying. Most small dealers check this never, or
-one car at a time on a slow government website.
+A recall list tells you what a manufacturer has been forced to acknowledge. It does not
+tell you what the car actually does in the hands of the people who own it. NHTSA
+publishes both — recalls, and the complaints owners file — and nobody puts them side by
+side.
 
-**Live:** https://alba-recall-radar.vercel.app ·
+Paste a VIN and you get three things no single page gives you:
+
+1. **The open recall campaigns**, ranked by NHTSA's own severity flags.
+2. **A fault history** — complaints per year, with the recall campaign years marked
+   alongside them.
+3. **The gap** — components owners keep reporting that no campaign has ever covered.
+   For a 2006 Ford Ranger that is **35% of all complaints**: suspension, fuel system,
+   electrical, speed control. No remedy, no free repair, no paper trail. That is the
+   list you hand to a mechanic before you bid.
+
+**Live:** https://alba-second-opinion.vercel.app ·
 **Build log:** [BUILD_LOG.md](./BUILD_LOG.md)
 
-No sign-up, no keys, nothing to configure — try `1FTZR45E36PA12345` (a 2006 Ford Ranger
-with four "do not drive" recalls) or use the example buttons on the page.
+No sign-up, no keys, nothing to configure — try `1FTZR45E36PA12345` (a 2006 Ford Ranger:
+four "do not drive" recalls, 271 owner complaints, 4 deaths) or use the example buttons.
 
 ---
 
@@ -35,8 +45,12 @@ Dubai dealer that is a genuine constraint, not a footnote.
 
 ## Features
 
-- **One-car lookup** — paste a VIN, get decoded specs plus every open recall campaign,
-  most serious first.
+- **Fault history** — every complaint filed for that model year, charted per year, with
+  recall campaign years marked beneath. The relationship is shown, not asserted.
+- **What owners actually report** — complaints grouped by component and ranked by how
+  many involved a crash, fire or injury, each marked with the campaigns covering it or
+  flagged **"no recall covers this"**.
+- **One-car lookup** — decoded specs plus every open recall campaign, most serious first.
 - **Lot sweep** — paste the VIN column out of a stock list (up to 12) and see which cars
   are flagged. Each VIN resolves independently, so one typo does not fail the batch.
 - **Severity that comes from the data** — NHTSA publishes `parkIt` ("do not drive") and
@@ -56,8 +70,11 @@ Dubai dealer that is a genuine constraint, not a footnote.
 ## Architecture
 
 ```
-Browser ──► Next.js route handler (the BFF) ──┬──► vPIC        decode the VIN
-             cache · coalesce · backoff        └──► Recalls API by make/model/year
+                                              ┌──► vPIC         decode the VIN
+Browser ──► Next.js route handler (the BFF) ──┼──► Recalls API   what was acknowledged
+             cache · coalesce · backoff       └──► Complaints    what owners report
+                    │
+                    └──► analysis: group, harm-weight, find the gap  →  a verdict per component
 ```
 
 The client never talks to NHTSA. Everything goes through `app/api/lookup/route.ts`.
@@ -82,6 +99,12 @@ from a single click. Caching and coalescing exist for that.
 |---|---|---|
 | Decoded VIN | 30 days | A VIN decodes the same way forever. It is immutable data. |
 | Recall list | 6 hours | Campaigns are announced monthly at most. |
+| Complaints | 12 hours | Filed continuously but slowly; a 271-row history does not change between two page views. |
+
+**The analysis runs on the server.** The browser receives a computed finding per
+component — counts, harm weighting, campaign coverage — not 271 raw complaint records to
+group itself. That is the same principle as the database-side analytics in
+`../02-dashboard`: send an answer, not a dataset.
 
 **Request coalescing.** Ten concurrent lookups of the same VIN produce one upstream
 call, not ten. A sweep of a lot with repeated model-years leans on this heavily.
@@ -111,9 +134,11 @@ production and would rather defend a deliberate choice than pad the stack.
 ### The advanced options this covers
 
 - **Your own backend (the big bonus)** — everything above.
-- **Multi-API data fusion** — two NHTSA APIs blended into one answer that neither gives
-  alone: vPIC knows what the car is, the recalls API knows what is wrong with that kind
-  of car, and only the combination answers "is this car safe to sell".
+- **Multi-API data fusion** — three NHTSA datasets producing a conclusion none of them
+  contains. vPIC knows what the car is; the recalls API knows what the manufacturer
+  admitted; the complaints API knows what owners experienced. Only cross-referencing
+  them yields "35% of complaints concern components with no campaign behind them",
+  which is the actual product.
 - **Shareable, URL-synced state** — the VIN lives in the query string.
 
 ---
@@ -133,6 +158,10 @@ production and would rather defend a deliberate choice than pad the stack.
    Rounded at the normalisation boundary.
 6. **`parkIt` and `parkOutSide` arrive as booleans in some rows and strings in others**,
    so both forms are coerced.
+7. **The two datasets name components differently.** A complaint says `AIR BAGS`; a
+   recall says `AIR BAGS:FRONTAL:DRIVER SIDE:INFLATOR MODULE`. Matching is therefore on
+   shared significant words rather than equality — an exact match would report almost
+   everything as "never recalled", which would be worse than useless.
 
 ---
 
@@ -183,6 +212,8 @@ Every case below was run against the live NHTSA APIs, not mocks.
 | Check-digit warning | `WBA8E9G59GNT10093` | decodes to a 2016 BMW 328i, flagged as possibly mistyped |
 | Sweep, partial failure | 5 VINs, 1 invalid | 4 resolved, the bad one failed individually — "4 of 5 cars have open campaigns · 1 should not be driven" |
 | Deployed BFF | production URL | returns the Ranger's 12 campaigns, 4 `parkIt` |
+| Complaint analysis | `1FTZR45E36PA12345` | 271 complaints, 16 involving harm, 4 deaths, 35% against components with no campaign |
+| Analysis degradation | complaints call forced to fail | recalls still render; a line explains the fault history is missing |
 
 **Client JavaScript shipped:** ~175 KB gzipped across all chunks, with no chart library
 and no component library. The page itself is statically prerendered; only the API route
@@ -200,9 +231,37 @@ exercised without depending on NHTSA being up.
 
 ---
 
+## A causal claim I built and then deleted
+
+The first version of the analysis scored each recalled component as **"remedy held"** or
+**"still reported"**, by comparing complaints before and after the campaign opened.
+
+Tested against the Ranger it returned *172 before, 0 after* — which looks like a
+triumphant result and is an artefact. A further airbag campaign opened in 2025, so
+"after" was a window a few months wide. Anchoring to the *first* campaign instead
+inverts the distortion, because complaints **spike when a recall is announced** —
+publicity drives reporting, not new failures.
+
+Neither anchor supports a causal claim, so the claim is gone. What is left is evidence:
+complaints per year, campaign years marked alongside, and how much is still being
+reported in the last three years. The reader draws the inference; the app does not
+assert one it cannot defend.
+
+The one verdict kept is **"no recall covers this"**, because that is a fact about the
+two datasets rather than an inference about cause.
+
 ## Known limitations
 
 - **Recalls are model-level, not VIN-level.** The headline caveat.
+- **Component matching is fuzzy.** Shared-word matching between the two datasets will
+  occasionally pair a complaint with a campaign that is not really about the same part,
+  or miss one that is. The alternative — exact matching — fails far more often.
+- **Complaint volume is not a defect rate.** 271 complaints on a common truck and 271 on
+  a rare one mean very different things, and NHTSA publishes no production figures to
+  normalise against. The app reports counts and says so rather than implying a rate.
+- **`UNKNOWN OR OTHER` is a real NHTSA category** and appears as a finding. It is not
+  very actionable, and it is kept rather than hidden because dropping it would quietly
+  change the percentages.
 - **US-market vehicles only.** A GCC-spec car may not decode.
 - **The cache is per-instance.** On serverless, a cold instance starts empty and
   instances do not share entries.

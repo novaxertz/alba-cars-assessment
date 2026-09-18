@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Recall Radar — open safety recalls by VIN",
+  title: "Second Opinion — what owners report vs what was recalled",
   description:
-    "Decode a VIN and check it against NHTSA's recall database before listing the car.",
+    "Paste a VIN: open safety recalls, plus the faults owners keep reporting that were never recalled.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

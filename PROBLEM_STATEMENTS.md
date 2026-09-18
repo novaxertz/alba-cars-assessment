@@ -79,17 +79,25 @@ One-command seed script with a realistic ageing spread + test credentials in the
 
 ---
 
-## 01 — Recall Radar, on a Next.js BFF · build second
+## 01 — Second Opinion, on a Next.js BFF · build second
 
-**Problem.** Before a used car is listed, somebody should check whether it carries an
-**open safety recall**. An unrepaired recall is a liability to sell, a disclosure
-problem, and — when buying a trade-in — a negotiation lever. Most small dealers check
-this never, or one car at a time, on a slow government website.
+**Problem.** A recall list tells you what a manufacturer was forced to admit. It does not
+tell you what the car does in the hands of the people who own it. NHTSA publishes both —
+recalls and owner complaints — and nobody puts them side by side, so the faults owners
+keep reporting that were *never* recalled stay invisible. Those are precisely the ones
+with no free remedy and no paper trail.
+
+**Revised mid-build.** The first version was a recall lookup and read as a wrapper:
+fetch, normalise, display, computing nothing. The rebuild adds a real analysis step and
+a third dataset. Recorded here rather than quietly replaced, because the reason for the
+change is the more interesting half.
 
 **For whom.** Whoever prices and lists incoming stock.
 
-**What it does.** Paste a VIN (or a batch from the lot): decoded specs, any open
-recalls, and a plain-language summary of what each recall means for a buyer.
+**What it does.** Paste a VIN: decoded specs, open recall campaigns ranked by NHTSA's own
+severity flags, a fault history charting complaints per year against campaign years, and
+— the actual product — the components owners keep reporting that no campaign covers. For
+a 2006 Ford Ranger that is 35% of 271 complaints.
 
 **Why this upstream.** Measured before designing, rather than assumed — and the first
 round of assumptions was wrong, which is recorded here on purpose:

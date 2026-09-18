@@ -6,12 +6,17 @@ import { Verdict } from './Verdict';
 import { RecallCard } from './RecallCard';
 import { LookupSkeleton } from './Skeletons';
 import { SeverityIcon } from './icons';
+import { DefectTimeline } from './DefectTimeline';
+import { Findings } from './Findings';
+import type { Analysis } from '@/lib/analysis';
 import type { DecodedVin, Recall } from '@/lib/nhtsa';
 import type { Summary } from '@/lib/summarise';
 
 type Payload = {
   vehicle: DecodedVin;
   recalls: Recall[];
+  analysis: Analysis | null;
+  analysisFailed: boolean;
   summaries: Summary[];
   summariesFrom: 'model' | 'nhtsa';
   cache: { decodeAgeMs: number; recallsAgeMs: number; stale: boolean };
@@ -244,6 +249,28 @@ export function Lookup() {
             )}
           </section>
 
+          {data.analysis && data.analysis.totalComplaints > 0 && (
+            <section className="panel lift p-4 sm:p-5" style={{ animationDelay: '90ms' }} aria-label="Complaint history">
+              <h2 className="text-[15px] font-semibold">Fault history</h2>
+              <p className="mt-1 mb-4 text-[13px] text-ink-secondary">
+                Complaints owners filed each year, with the years recall campaigns opened marked
+                beneath. Shown side by side deliberately — a spike often follows a recall being
+                announced, because publicity drives reporting, so the shape is evidence rather
+                than proof of cause.
+              </p>
+              <DefectTimeline analysis={data.analysis} />
+            </section>
+          )}
+
+          {data.analysis && <Findings analysis={data.analysis} />}
+
+          {data.analysisFailed && (
+            <p className="panel lift p-4 text-[13px] text-ink-secondary">
+              The complaints database did not respond, so the fault history is missing. The recall
+              information below is unaffected.
+            </p>
+          )}
+
           {data.recalls.length > 0 && (
             <section className="space-y-3" aria-label="Open recall campaigns">
               <div className="flex items-baseline justify-between px-1">
@@ -268,9 +295,9 @@ export function Lookup() {
           <div aria-hidden className="mx-auto mb-3 flex size-11 items-center justify-center rounded-full border border-dashed border-[color:var(--rule)] text-ink-muted">
             <SeverityIcon level="clear" className="size-5" />
           </div>
-          <p className="text-[15px] font-medium">Check a car before you list it</p>
+          <p className="text-[15px] font-medium">Check a car before you commit to it</p>
           <p className="mx-auto mt-1.5 max-w-sm text-[13px] text-ink-secondary">
-            An unrepaired safety recall is a liability to sell and a lever when you&rsquo;re buying.
+            Recalls are what the manufacturer admitted. Complaints are what owners lived with.
             Paste a VIN above, or try one of the examples.
           </p>
         </div>

@@ -27,6 +27,37 @@ cache, no recall *repair* tracking, no non-US data sources, no OCR of VIN plates
 
 *(appended as each decision was made)*
 
+### Reframing from lookup to assessment
+
+A wrapper displays what it fetched. A product answers something the source cannot. The
+test I applied: **does the app compute anything?** The first version did not — it
+normalised and displayed. The rebuild adds a genuine analysis step: group complaints by
+component, weight them by whether anyone was hurt, match each component against the
+campaigns that cover it, and compute what is left over.
+
+For a 2006 Ford Ranger that produces a number that exists nowhere else: **35% of the 271
+complaints concern components with no recall campaign behind them** — suspension (19
+complaints, one involving a crash), fuel system, electrical, speed control.
+
+Nothing from the first build was discarded. The BFF, per-resource TTLs, coalescing,
+backoff and stale-on-failure all carry over; the fusion claim got stronger, going from
+two datasets concatenated to three genuinely synthesised.
+
+### The analysis runs on the server, not in the browser
+
+The client receives a computed finding per component. It never receives 271 complaint
+records to group itself. Same principle as the database-side analytics in `02` — send an
+answer, not a dataset — and it is the reason the BFF earns its place twice over.
+
+### A hand-built SVG chart instead of a chart library
+
+The fault-history chart is one chart with a simple shape. Recharts would roughly double
+the client bundle of an app whose entire argument is that the work happens on the
+server, so the chart is ~80 lines of SVG. Bars animate with `scaleY` from the baseline —
+a composited transform — rather than animating height, which would lay out every frame.
+It ships with a legend, a direct label on the peak year, and the same figures as a
+table for anyone who cannot use the chart.
+
 ### I measured the upstream before designing for it, and my assumptions were wrong
 
 I had planned to justify the caching layer on NHTSA being slow and rate-limited. Before
@@ -106,6 +137,37 @@ no signup.
 
 ## Hard parts / dead ends
 
+### I built a causal verdict, tested it, and deleted it
+
+The analysis originally scored each recalled component as **"remedy held"** or **"still
+reported"**, comparing complaints before and after the campaign opened.
+
+Against the Ranger it returned *172 before, 0 after*. That looks like a triumphant
+result and it is an artefact: a further airbag campaign opened in 2025, so "after" was a
+window a few months wide. Anchoring to the *first* campaign instead inverts the
+distortion, because complaints **spike when a recall is announced** — publicity drives
+reporting, not new failures.
+
+Neither anchor supports the claim, so the claim is gone. What remains is evidence:
+complaints per year, campaign years marked beside them, and how much is still reported
+in the last three years. The reader draws the inference; the app does not assert one it
+cannot defend.
+
+The verdict I kept is **"no recall covers this"**, because that is a fact about the two
+datasets rather than an inference about cause. This was the most interesting hour of the
+build: the feature that looked best in a demo was the one that had to go.
+
+### Component names do not match between the two datasets
+
+A complaint says `AIR BAGS`. The recall covering it says
+`AIR BAGS:FRONTAL:DRIVER SIDE:INFLATOR MODULE`. Exact matching reports almost everything
+as "never recalled" — the headline finding becomes 100% and meaningless.
+
+Matching is therefore on shared significant words, with a stop-list so that noise words
+like `SYSTEM` do not join unrelated components. It is deliberately loose and it will
+occasionally mismatch; that trade-off is stated in the README rather than hidden, and
+the alternative fails far more often.
+
 ### vPIC's idea of an engine size
 
 The decoder returns displacement as `2.998832712`. Nobody describes a car as having a
@@ -160,6 +222,13 @@ Small, but it is the kind of detail that makes a page look machine-generated.
   NHTSA's severity flags — is exactly the logic that rots silently, so a test suite
   around it is the first thing I would add.
 - **Lighthouse unmeasured**, for the reasons above.
+- **Component matching is fuzzy**, by necessity. See above.
+- **Complaint volume is not a defect rate.** NHTSA publishes no production figures, so
+  271 complaints on a common truck cannot be normalised against a rare one. The app
+  reports counts and says so rather than implying a rate.
+- **`UNKNOWN OR OTHER` shows up as a finding.** It is a real NHTSA category and not very
+  actionable. Kept rather than hidden, because dropping it would quietly change the
+  percentages the app reports.
 
 ## Time spent
 
