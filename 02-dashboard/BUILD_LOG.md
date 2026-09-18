@@ -80,6 +80,37 @@ cost more.
 
 ## Hard parts / dead ends
 
+### Row-level security locked out my own trigger
+
+Repricing a car through the app failed:
+
+```
+new row violates row-level security policy for table "price_changes"
+```
+
+The design was deliberate. `price_changes` has RLS on and **no INSERT policy at all**,
+so no client can forge price history. What I had not accounted for is that a trigger
+function runs with the privileges of whoever fired the statement — so the rule that
+locks out a forger locked out the legitimate writer too.
+
+It stayed hidden because the seed script uses the service-role key, which bypasses RLS
+entirely. Seeding worked perfectly. The bug surfaced only when a signed-in user did a
+real write in the browser.
+
+Fixed in `0002_trigger_can_write_history.sql` with privilege rather than policy: the
+trigger is `SECURITY DEFINER`, so it alone can write history, and clients still have no
+INSERT path. It does not widen access — the function writes `owner_id = NEW.owner_id`,
+and a caller can only reach the trigger by updating a vehicle that
+`vehicles_update_own` already permits, whose `WITH CHECK` also stops them reassigning
+ownership.
+
+Then I re-ran the full boundary proof, because changing a privilege boundary is exactly
+when you re-run it. All ten checks still pass, including "nobody can hand-write price
+history" — the one that would have caught it if `SECURITY DEFINER` had opened that door.
+
+The lesson worth keeping: **a seed script running with elevated privileges hides this
+entire class of bug.** Testing writes as an admin is not testing the security model.
+
 ### `LayoutProps` is generated, not imported
 
 First typecheck failed with `Cannot find name 'LayoutProps'` in the generated layout.
@@ -111,6 +142,13 @@ correctly excluded from the summary while remaining in the view.
 **The trigger.** 10 `price_changes` rows exist after seeding, none written by hand. The
 seed applies markdowns as ordinary updates, so the history was produced by the same
 path the live app will use.
+
+**The write path, as a real user in a browser.** Repriced the 148-day Lexus from 47,500
+to 45,000 while signed in as dealer A. A fourth history row appeared with reason
+`manual` and today's date; the asking price updated; margin at list recomputed from
+−3,160 to −5,660 AED; total markdown from first listing moved to 9,000. Every derived
+figure came back from Postgres, not from arithmetic in the browser. This is also the
+test that found the trigger bug above — the seed could never have found it.
 
 ## Known limitations
 

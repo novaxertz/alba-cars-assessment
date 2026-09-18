@@ -105,6 +105,28 @@ async function seedDealer(user, fleet, holdingRate) {
       if (e) throw e;
     }
 
+    // The trigger stamps changed_at with now(), so a freshly seeded lot has every
+    // markdown landing today and the decay chart becomes a straight interpolation.
+    // Spread them across the car's life so the history looks like history. Only the
+    // seed does this, using the service role — the app can never rewrite a timestamp.
+    const changes = v.markdowns ?? [];
+    if (changes.length) {
+      const { data: logged } = await admin.from('price_changes')
+        .select('id').eq('vehicle_id', row.id).order('changed_at', { ascending: true });
+
+      // first markdown around 45% of the way through, last one a week ago
+      const spread = logged.map((_, i) =>
+        Math.round(v.acquired * (0.45 + (0.45 * i) / Math.max(1, logged.length - 1 || 1))),
+      );
+
+      for (const [i, rec] of logged.entries()) {
+        const daysBack = Math.max(4, v.acquired - Math.min(spread[i], v.acquired - 4));
+        await admin.from('price_changes')
+          .update({ changed_at: new Date(Date.now() - daysBack * 86400000).toISOString() })
+          .eq('id', rec.id);
+      }
+    }
+
     if (v.soldAfter != null) {
       const { error: e } = await admin.from('vehicles').update({
         status: 'sold',

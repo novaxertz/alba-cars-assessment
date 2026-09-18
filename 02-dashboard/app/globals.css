@@ -1,26 +1,105 @@
 @import "tailwindcss";
 
+/*
+ * Design tokens. Light-only by choice: a second validated dark palette is real work
+ * and the time-box is better spent on the core. Noted in the build log's limitations.
+ *
+ * Chart colours come from a validated palette — see docs/charts.md. The ageing ramp is
+ * one hue, light to dark (ordinal magnitude); the decay lines use the categorical slots
+ * in fixed order.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --plane:            #f9f9f7;
+  --surface:          #fcfcfb;
+  --ink:              #0b0b0b;
+  --ink-secondary:    #52514e;
+  --ink-muted:        #898781;
+  --hairline:         #e1e0d9;
+  --baseline:         #c3c2b7;
+
+  --accent:           #2a78d6;
+  --accent-ink:       #185099;
+
+  --good:             #0ca30c;
+  --warning:          #fab219;
+  --serious:          #ec835a;
+  --critical:         #d03b3b;
+
+  /* ordinal ageing ramp: fresh → bleeding */
+  --age-1: #86b6ef;
+  --age-2: #5598e7;
+  --age-3: #2a78d6;
+  --age-4: #1c5cab;
+
+  /* categorical slots, fixed order, for the decay lines */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-plane: var(--plane);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-ink-secondary: var(--ink-secondary);
+  --color-ink-muted: var(--ink-muted);
+  --color-hairline: var(--hairline);
+  --color-accent: var(--accent);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+html { color-scheme: light; }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--plane);
+  color: var(--ink);
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Money and counts line up column-wise wherever they appear. */
+.tnum { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+
+/* One shared card surface, so nothing looks bolted on. */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+}
+
+/* Entry motion. Transform and opacity only — both composited, so it stays at 60fps
+   instead of laying out on every frame. */
+@keyframes rise {
+  from { opacity: 0; transform: translate3d(0, 8px, 0); }
+  to   { opacity: 1; transform: none; }
+}
+.rise { animation: rise 340ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+
+@keyframes shimmer {
+  from { background-position: -320px 0; }
+  to   { background-position: 320px 0; }
+}
+.skeleton {
+  background-color: #eeede8;
+  background-image: linear-gradient(90deg, transparent, rgba(255,255,255,0.75), transparent);
+  background-size: 320px 100%;
+  background-repeat: no-repeat;
+  animation: shimmer 1.25s linear infinite;
+  border-radius: 6px;
+}
+
+/* Honour the OS setting rather than animating regardless. */
+@media (prefers-reduced-motion: reduce) {
+  .rise, .skeleton { animation: none; }
+  * { transition-duration: 1ms !important; }
+}
+
+::selection { background: #d6e6fb; }
+
+:where(a, button, input, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
 }

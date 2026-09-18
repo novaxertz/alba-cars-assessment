@@ -1,69 +1,114 @@
-import Image from "next/image";
+import Link from 'next/link';
+import { getAgeing, getCurrentUser, getDecaySeries, getSummary } from '@/lib/queries';
+import { aed, bucketLabel } from '@/lib/format';
+import { AgeingChart, DecayChart } from '@/components/Charts';
+import { Header } from '@/components/Header';
+import { BucketPill, EmptyState, Money, StatTile, StatusChip } from '@/components/ui';
 
-export default function Home() {
+export default async function DashboardPage() {
+  const [user, rows, summary, decay] = await Promise.all([
+    getCurrentUser(), getAgeing(), getSummary(), getDecaySeries(),
+  ]);
+
+  const unsold = rows.filter((r) => r.status !== 'sold');
+  const capital = unsold.reduce((n, r) => n + r.acquisition_cost_aed, 0);
+  const holding = unsold.reduce((n, r) => n + Number(r.holding_cost_aed), 0);
+  const overNinety = unsold.filter((r) => r.ageing_bucket === '90+');
+  const bleeding = unsold.filter((r) => r.margin_at_list_aed < 0);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
+    <>
+      <Header email={user?.email ?? ''} />
+
+      <main className="mx-auto w-full max-w-[1180px] flex-1 px-5 py-6">
+        <section aria-label="Summary" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <StatTile label="Capital on the lot" value={aed(capital)} sub={`${unsold.length} unsold vehicles`} />
+          <StatTile label="Holding cost to date" value={aed(holding)} sub="Accrued since acquisition" />
+          <StatTile label="Over 90 days" value={String(overNinety.length)} sub={overNinety.length ? aed(overNinety.reduce((n, r) => n + r.acquisition_cost_aed, 0)) + ' tied up' : 'Nothing stale'} />
+          <StatTile
+            label="Below water"
+            value={String(bleeding.length)}
+            sub={bleeding.length ? 'Asking price no longer covers cost + carry' : 'Every unit still profitable'}
+            tone={bleeding.length ? 'critical' : 'plain'}
+          />
+        </section>
+
+        <section className="mt-4 grid gap-3 lg:grid-cols-2">
+          <div className="card rise p-5">
+            <h2 className="text-[15px] font-semibold">Where the money is stuck</h2>
+            <p className="mb-2 text-[12px] text-ink-muted">Acquisition cost of unsold stock, by time on the lot</p>
+            {summary.length ? <AgeingChart data={summary} /> : (
+              <p className="py-16 text-center text-[13px] text-ink-muted">No unsold inventory to chart.</p>
+            )}
+          </div>
+
+          <div className="card rise p-5">
+            <h2 className="text-[15px] font-semibold">Price decay</h2>
+            <p className="mb-2 text-[12px] text-ink-muted">Asking price against days on the lot, for units already marked down</p>
+            {decay.length ? <DecayChart series={decay} /> : (
+              <p className="py-16 text-center text-[13px] text-ink-muted">Nothing has been marked down yet.</p>
+            )}
+          </div>
+        </section>
+
+        <section className="mt-4" aria-label="Inventory">
+          {rows.length === 0 ? (
+            <EmptyState
+              title="No vehicles yet"
+              body="Add the first car to the lot and its ageing, holding cost and price history start tracking from the acquisition date."
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+          ) : (
+            <div className="card rise overflow-hidden">
+              <div className="flex items-baseline justify-between border-b border-hairline px-5 py-3">
+                <h2 className="text-[15px] font-semibold">Inventory</h2>
+                <p className="text-[12px] text-ink-muted">{rows.length} vehicles · oldest first</p>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[720px] border-collapse text-[14px]">
+                  <caption className="sr-only">Inventory by time on the lot, oldest first</caption>
+                  <thead>
+                    <tr className="text-left text-[12px] uppercase tracking-wide text-ink-muted">
+                      <th scope="col" className="px-5 py-2.5 font-medium">Vehicle</th>
+                      <th scope="col" className="px-3 py-2.5 font-medium">Age</th>
+                      <th scope="col" className="px-3 py-2.5 text-right font-medium">Cost</th>
+                      <th scope="col" className="px-3 py-2.5 text-right font-medium">Asking</th>
+                      <th scope="col" className="px-3 py-2.5 text-right font-medium">Holding</th>
+                      <th scope="col" className="px-5 py-2.5 text-right font-medium">Margin at list</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((r) => (
+                      <tr key={r.id} className="border-t border-hairline transition-colors hover:bg-[#f5f5f2]">
+                        <td className="px-5 py-3">
+                          <Link href={`/vehicles/${r.id}`} className="font-medium hover:text-[color:var(--accent-ink)]">
+                            {r.make} {r.model}
+                          </Link>
+                          <span className="ml-2 text-[12px] text-ink-muted">{r.year}</span>
+                          <span className="ml-2"><StatusChip status={r.status} /></span>
+                          <span className="tnum mt-0.5 block text-[12px] text-ink-muted">{r.vin}</span>
+                        </td>
+                        <td className="px-3 py-3">
+                          <span className="tnum block">{r.days_on_lot}d</span>
+                          <BucketPill bucket={r.ageing_bucket} />
+                        </td>
+                        <td className="tnum px-3 py-3 text-right text-ink-secondary">{aed(r.acquisition_cost_aed)}</td>
+                        <td className="tnum px-3 py-3 text-right">{aed(r.list_price_aed)}</td>
+                        <td className="tnum px-3 py-3 text-right text-ink-secondary">{aed(Number(r.holding_cost_aed))}</td>
+                        <td className="px-5 py-3 text-right font-medium"><Money value={r.margin_at_list_aed} tone /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </section>
+
+        <p className="mt-4 text-[12px] text-ink-muted">
+          Ageing buckets: {Object.values(bucketLabel).join(' · ')}. Holding cost uses the daily rate on your dealer settings.
+        </p>
       </main>
-    </div>
+    </>
   );
 }
