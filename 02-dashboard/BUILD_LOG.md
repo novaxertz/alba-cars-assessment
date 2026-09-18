@@ -89,11 +89,40 @@ for anyone running the repo from scratch — it is in the README's setup steps.
 
 ## How I verified it works
 
-*(appended as it happens)*
+**The security boundary.** `npm run verify:rls` signs in as dealer A with nothing but
+the anon key and tries ten ways to reach dealer B's data: by owner id, by exact primary
+key, unfiltered, through the price history, through the ageing view, through the
+summary RPC, by update, by insert-as-someone-else, by hand-writing history, and signed
+out entirely. All ten come back empty or refused. Full output in
+`docs/security-boundary.md`.
+
+The view and the RPC are checked separately from the tables on purpose — they fail
+independently, and a view that forgot `security_invoker` would leak every dealer's
+totals while the tables underneath looked locked.
+
+**The analytics.** Read the seeded fleet back through `vehicle_ageing` and checked the
+arithmetic by hand: a car acquired 148 days ago at a 45 AED/day holding rate shows
+6,660 AED of holding cost, and after 6,500 AED of markdowns its margin at today's
+asking price is **−3,160 AED**. That car has eaten its own profit, which is exactly the
+unit the dashboard exists to surface. The bucket counts from
+`inventory_ageing_summary()` sum to 9, matching the 9 unsold vehicles — the sold car is
+correctly excluded from the summary while remaining in the view.
+
+**The trigger.** 10 `price_changes` rows exist after seeding, none written by hand. The
+seed applies markdowns as ordinary updates, so the history was produced by the same
+path the live app will use.
 
 ## Known limitations
 
-*(appended as they appear)*
+- The holding rate is a single configurable AED/day figure per dealer. Real floor-plan
+  cost varies by lender, vehicle value and tenor. Out of scope for the time-box, and
+  the number is deliberately visible in settings rather than hidden in a formula.
+- `margin_at_list_aed` ignores reconditioning, registration and transport costs, so it
+  is optimistic in absolute terms. It is still directionally right, which is what the
+  ageing comparison needs.
+- Seeded VINs are synthetic and will not decode in the task-01 recall lookup.
+- The boundary check covers the PostgREST surface only — see `docs/security-boundary.md`
+  for what it does not cover.
 
 ## Time spent
 
