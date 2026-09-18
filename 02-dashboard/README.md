@@ -7,7 +7,7 @@ should be discounted or wholesaled now?**
 
 A stock list shows what is in the yard. This shows what it is costing.
 
-**Live:** _(deployed URL)_ · **Build log:** [BUILD_LOG.md](./BUILD_LOG.md) ·
+**Live:** https://alba-lot-dashboard.vercel.app · **Build log:** [BUILD_LOG.md](./BUILD_LOG.md) ·
 **Security boundary:** [docs/security-boundary.md](./docs/security-boundary.md)
 
 ---
