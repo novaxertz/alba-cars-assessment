@@ -7,11 +7,12 @@ if (cars.length === 0) return [];
 
 const n = (v) => Number(v).toLocaleString('en-AE');
 
+// ASCII only, and one subtext line rather than two - see digest.js for why.
 const parts = [
-  '## 🛑 Do not retail',
+  '## Do not retail',
   `**${cars.length}** vehicle${cars.length === 1 ? '' : 's'} on the lot ` +
   `${cars.length === 1 ? 'has' : 'have'} an open **"do not drive"** recall. ` +
-  `Close the recall before ${cars.length === 1 ? 'it goes' : 'they go'} on sale — no markdown recommended.`,
+  `Close the recall before ${cars.length === 1 ? 'it goes' : 'they go'} on sale - no markdown recommended.`,
   '',
 ];
 
@@ -25,7 +26,9 @@ for (const c of cars) {
   parts.push('```');
 }
 
-parts.push('-# Recall data from NHTSA, matched by make, model and year — not by VIN.');
-parts.push('-# Confirm with the manufacturer whether this specific car has already been repaired.');
+parts.push(
+  '-# Recall data from NHTSA, matched by make, model and year rather than by VIN.  |  ' +
+  'Confirm with the manufacturer whether this specific car has already been repaired.',
+);
 
 return [{ json: { content: parts.join('\n') } }];
