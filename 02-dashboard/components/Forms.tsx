@@ -49,7 +49,7 @@ export function AddVehicleForm() {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="rounded-lg border border-hairline bg-surface px-3.5 py-2 text-[14px] font-medium transition-colors hover:border-[color:var(--baseline)]"
+        className="rounded-lg border border-hairline bg-surface px-3 py-2 text-[13px] font-medium whitespace-nowrap transition-colors hover:border-[color:var(--baseline)] sm:px-3.5 sm:text-[14px]"
       >
         Add vehicle
       </button>

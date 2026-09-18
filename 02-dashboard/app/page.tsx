@@ -21,7 +21,7 @@ export default async function DashboardPage() {
       <Header email={user?.email ?? ''} />
 
       <main className="mx-auto w-full max-w-[1180px] flex-1 px-5 py-6">
-        <section aria-label="Summary" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <section aria-label="Summary" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <StatTile label="Capital on the lot" value={aed(capital)} sub={`${unsold.length} unsold vehicles`} />
           <StatTile label="Holding cost to date" value={aed(holding)} sub="Accrued since acquisition" />
           <StatTile label="Over 90 days" value={String(overNinety.length)} sub={overNinety.length ? aed(overNinety.reduce((n, r) => n + r.acquisition_cost_aed, 0)) + ' tied up' : 'Nothing stale'} />

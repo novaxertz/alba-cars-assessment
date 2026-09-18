@@ -6,9 +6,9 @@ export function StatTile({ label, value, sub, tone }: {
 }) {
   return (
     <div className="card rise p-4">
-      <p className="text-[12px] uppercase tracking-wide text-ink-muted">{label}</p>
+      <p className="text-[11px] uppercase tracking-wide text-ink-muted sm:text-[12px]">{label}</p>
       <p
-        className="tnum mt-1.5 text-[26px] leading-none font-semibold"
+        className="tnum mt-1.5 text-[20px] leading-tight font-semibold sm:text-[26px] sm:leading-none"
         style={{ color: tone === 'critical' ? 'var(--critical)' : 'var(--ink)' }}
       >
         {value}

@@ -111,6 +111,17 @@ history" — the one that would have caught it if `SECURITY DEFINER` had opened 
 The lesson worth keeping: **a seed script running with elevated privileges hides this
 entire class of bug.** Testing writes as an admin is not testing the security model.
 
+### Screenshots that lied about the layout
+
+While checking phone width, several screenshots came back completely blank and I spent a
+few minutes convinced the mobile layout had collapsed. It had not — the preview pane was
+not compositing frames, so it was returning empty images. Inspecting the DOM directly
+settled it: ten rows present, opacity 1, correctly positioned, no horizontal page
+overflow, and the 720px inventory table scrolling inside its 335px card as intended.
+
+Worth recording because the wrong conclusion was one step away: *the layout is broken*,
+followed by "fixing" a layout that was already correct. Measure before you fix.
+
 ### `LayoutProps` is generated, not imported
 
 First typecheck failed with `Cannot find name 'LayoutProps'` in the generated layout.
@@ -161,6 +172,15 @@ test that found the trigger bug above — the seed could never have found it.
 - Seeded VINs are synthetic and will not decode in the task-01 recall lookup.
 - The boundary check covers the PostgREST surface only — see `docs/security-boundary.md`
   for what it does not cover.
+- **No dark mode.** A second palette validated against a dark surface is real work, and
+  one excellent theme beats two mediocre ones inside the time-box.
+- **No realtime.** Two open tabs will not sync until revalidation. Deliberate: a pricing
+  review is a thing you sit down and do, not a live feed.
+- **Dealer settings have no UI.** The daily holding rate is seeded and editable in the
+  database only.
+- **Charts animate in on load.** Mid-animation the plot area looks empty, which reads as
+  a broken chart for a moment. Shortening or removing the entry animation would fix it;
+  left as is because the motion is worth more than the half-second.
 
 ## Time spent
 
