@@ -147,6 +147,31 @@ consequence text and says so in the header and beside each notice.
 The upside outweighs the feature: a reviewer can clone this and run it with no keys and
 no signup.
 
+### The animation I could not prove was running
+
+The sweep-row-to-detail morph was first built with React's `<ViewTransition>`, which is
+the tidy declarative answer and is available in this version with no configuration.
+
+It never fired. I only know that because I hooked `document.startViewTransition`,
+counted the calls, and got zero across repeated attempts — not because I watched for a
+flicker and formed an opinion. I could not establish whether the component was inert in
+this setup or whether I was holding it wrong, and an animation I cannot demonstrate is
+worth nothing in a walkthrough.
+
+So it is FLIP, written explicitly: measure the row's rect on click, measure the header's
+rect on arrival, invert the difference with a transform, play it back to identity. The
+behaviour is testable — `element.getAnimations()` returns the keyframes — and a real run
+gives `translate3d(32px, 63.5px, 0) scale(0.714, 1)` to identity over 420ms.
+
+**Then it still did not fire, for a reason worth keeping.** Two elements can claim the
+same morph: the placeholder header that renders while the lookup is in flight, and the
+real header that replaces it. My first version cleared the recorded origin *before*
+checking the element had been laid out — so with a warm cache the placeholder, measured
+at zero size, swallowed the origin without animating, and the real header then found
+nothing to animate from. Instrumenting the module showed `pendingKey: null` at the
+moment of play, which is what pointed at it. The guard now runs before the origin is
+consumed: whoever can actually animate gets it.
+
 ### Paging a large list from the server, not the browser
 
 The analysis answers "what breaks on this car". The obvious next question is "show me
@@ -287,6 +312,9 @@ Small, but it is the kind of detail that makes a page look machine-generated.
   NHTSA's severity flags — is exactly the logic that rots silently, so a test suite
   around it is the first thing I would add.
 - **Lighthouse unmeasured**, for the reasons above.
+- **The morph is skipped when the detail header lands in the same place as the row** —
+  by design, since animating a two-pixel move is worse than not animating. It is also
+  off entirely under `prefers-reduced-motion`.
 - **The complaint reader clamps summaries to four lines.** Fixed row heights are what
   make the windowing cheap; a reader who wants the full text has to go to NHTSA.
 - **Component matching is fuzzy**, by necessity. See above.

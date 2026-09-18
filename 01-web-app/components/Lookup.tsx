@@ -10,6 +10,7 @@ import { DefectTimeline } from './DefectTimeline';
 import { Findings } from './Findings';
 import { ComplaintReader } from './ComplaintReader';
 import type { Analysis } from '@/lib/analysis';
+import { clearOrigin, playFrom } from '@/lib/flip';
 import type { DecodedVin, Recall } from '@/lib/nhtsa';
 import type { Summary } from '@/lib/summarise';
 
@@ -41,12 +42,12 @@ const age = (ms: number) => {
   return `${Math.round(m / 60)}h ago`;
 };
 
-export function Lookup() {
+export function Lookup({ seed }: { seed?: { vin: string; label: string } | null } = {}) {
   const router = useRouter();
   const params = useSearchParams();
   const urlVin = params.get('vin') ?? '';
 
-  const [vin, setVin] = useState(urlVin);
+  const [vin, setVin] = useState(seed?.vin ?? urlVin);
   const [data, setData] = useState<Payload | null>(null);
   const [failure, setFailure] = useState<Failure | null>(null);
   const [loading, setLoading] = useState(false);
@@ -54,6 +55,7 @@ export function Lookup() {
   const [reading, setReading] = useState<{ vin: string; component?: string } | null>(null);
   const [, startTransition] = useTransition();
   const lastRequested = useRef<string>('');
+  const arrivingHeader = useRef<HTMLHeadingElement | null>(null);
 
   const run = useCallback(async (raw: string, { pushUrl = true } = {}) => {
     const candidate = raw.trim().toUpperCase();
@@ -85,6 +87,7 @@ export function Lookup() {
       }
     } catch {
       if (lastRequested.current !== candidate) return;
+      clearOrigin();
       setFailure({ error: 'Could not reach the lookup service. Check your connection and try again.', kind: 'network' });
       setData(null);
     } finally {
@@ -94,12 +97,13 @@ export function Lookup() {
 
   // A URL with ?vin= is a shareable link: it loads that result directly.
   useEffect(() => {
-    if (urlVin && !data && !loading && !failure) {
-      setVin(urlVin);
-      void run(urlVin, { pushUrl: false });
+    const wanted = seed?.vin ?? urlVin;
+    if (wanted && !data && !loading && !failure) {
+      setVin(wanted);
+      void run(wanted, { pushUrl: false });
     }
      
-  }, [urlVin]);
+  }, [urlVin, seed?.vin]);
 
   const cacheBadge = data && (
     data.cache.stale ? (
@@ -171,6 +175,26 @@ export function Lookup() {
         </div>
       </form>
 
+      {/* Handed over from the lot sweep: the name is already known, so it renders in
+          the same commit as the navigation. That is what the morph animates into, and
+          it means the reader is never looking at an anonymous loading state. */}
+      {loading && seed && !data && (
+        <section className="panel p-4 sm:p-5">
+          <h2
+            ref={(el) => {
+              arrivingHeader.current = el;
+              // Play as soon as the element exists, which is the same frame the DOM
+              // changed - any later and the invert would be visible as a jump.
+              if (el) playFrom(seed.vin, el);
+            }}
+            className="text-[17px] font-semibold tracking-tight"
+          >
+            {seed.label}
+          </h2>
+          <p className="tnum mt-1 font-mono text-[12px] text-ink-muted">{seed.vin}</p>
+        </section>
+      )}
+
       {loading && <LookupSkeleton />}
 
       {!loading && failure && (
@@ -214,7 +238,16 @@ export function Lookup() {
 
           <section className="panel lift p-4 sm:p-5" style={{ animationDelay: '60ms' }}>
             <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h2 className="text-[17px] font-semibold tracking-tight">
+              {/* Same ViewTransition name as the sweep row: the browser animates one
+                  into the other instead of cutting between two unrelated screens. */}
+              {/* The morph target. Attached to the real header as well as the seeded
+                  one, because with a warm cache the lookup resolves between paints and
+                  the seeded header never survives long enough to animate. playFrom
+                  clears the recorded rect, so exactly one of the two plays. */}
+              <h2
+                ref={(el) => { if (el) playFrom(data.vehicle.vin, el); }}
+                className="text-[17px] font-semibold tracking-tight"
+              >
                 {data.vehicle.modelYear} {data.vehicle.make} {data.vehicle.model}
               </h2>
               {cacheBadge}

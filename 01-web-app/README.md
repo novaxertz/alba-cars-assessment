@@ -143,6 +143,17 @@ production and would rather defend a deliberate choice than pad the stack.
   them yields "35% of complaints concern components with no campaign behind them",
   which is the actual product.
 - **Shareable, URL-synced state** — the VIN lives in the query string.
+- **A signature animation** — opening a car from the lot sweep morphs the row into the
+  detail header rather than cutting between two screens. It is FLIP: the row's rect is
+  measured at click time, the difference against the header's final rect is inverted
+  with a transform, and that is played back to identity over 420ms. A real measurement
+  from a run: `translate3d(32px, 63.5px, 0) scale(0.714, 1)` to identity — the header
+  starts exactly where the row was.
+
+  Only `transform` and `opacity` animate, both of which the compositor owns, so no frame
+  does layout work. Animating `top`/`left`/`width` to the same visual effect would lay
+  out every frame and fall off 60fps on a long sweep. It is disabled entirely under
+  `prefers-reduced-motion`.
 - **High-performance lists** — the complaint reader. A 2016 Ford Explorer has **2,448
   complaints**, about 2.4MB of JSON from NHTSA. The browser never sees it:
 

@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
+import { useRef, useState } from 'react';
 import { SeverityIcon } from './icons';
+import { recordOrigin } from '@/lib/flip';
 
 type Row =
   | { input: string; ok: true; vin: string; label: string; recallCount: number; worstSeverity: 'critical' | 'serious' | 'standard' | null; checkDigitWarning: boolean; stale: boolean }
@@ -18,7 +18,10 @@ const COLOR = { critical: 'var(--critical)', serious: 'var(--serious)', standard
  * dealer pasting twenty VINs from a spreadsheet will have a typo in one of them, and
  * losing the other nineteen to it would be useless.
  */
-export function Sweep() {
+export function Sweep({ onOpenDetail }: { onOpenDetail: (vin: string, label: string) => void }) {
+  // One ref per rendered row, so the clicked row's rect can be measured before the DOM
+  // changes underneath it.
+  const labelRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [raw, setRaw] = useState('');
   const [rows, setRows] = useState<Row[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -132,7 +135,12 @@ export function Sweep() {
                     >
                       <SeverityIcon level={row.worstSeverity ?? 'clear'} />
                     </span>
-                    <div className="min-w-0 flex-1">
+                    {/* The element that morphs into the detail header. Its position is
+                        measured at click time - see lib/flip.ts. */}
+                    <div
+                      ref={(el) => { labelRefs.current[row.vin] = el; }}
+                      className="min-w-0 flex-1"
+                    >
                       <p className="text-[14px] font-medium">{row.label}</p>
                       <p className="tnum font-mono text-[12px] text-ink-muted">{row.vin}</p>
                     </div>
@@ -142,12 +150,15 @@ export function Sweep() {
                     <span className="tnum text-[13px] text-ink-secondary">
                       {row.recallCount === 0 ? 'clear' : `${row.recallCount} open`}
                     </span>
-                    <Link
-                      href={`/?vin=${row.vin}`}
+                    <button
+                      onClick={() => {
+                        recordOrigin(row.vin, labelRefs.current[row.vin]);
+                        onOpenDetail(row.vin, row.label);
+                      }}
                       className="text-[13px] text-ink-muted underline decoration-dotted underline-offset-4 transition-colors hover:text-ink"
                     >
                       Detail
-                    </Link>
+                    </button>
                   </>
                 ) : (
                   <>
