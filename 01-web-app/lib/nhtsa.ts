@@ -76,7 +76,7 @@ export class VinDecodeError extends Error {
  * malformed in 300ms, and retrying it only adds load to a public service for no gain.
  * Honours Retry-After when the upstream sends one.
  */
-async function fetchWithBackoff(url: string, attempts = 3): Promise<Response> {
+async function fetchWithBackoff(url: string, attempts = 3, tolerate: number[] = []): Promise<Response> {
   let lastError: unknown;
 
   for (let attempt = 0; attempt < attempts; attempt++) {
@@ -94,6 +94,10 @@ async function fetchWithBackoff(url: string, attempts = 3): Promise<Response> {
       });
 
       if (response.ok) return response;
+
+      // Some NHTSA endpoints answer with a status that contradicts their own body —
+      // see fetchComplaints. The caller names the statuses it wants to inspect itself.
+      if (tolerate.includes(response.status)) return response;
 
       const retryable = response.status >= 500 || response.status === 429 || response.status === 408;
       if (!retryable) {
@@ -231,8 +235,23 @@ export async function fetchRecalls(make: string, model: string, year: string): P
 export async function fetchComplaints(make: string, model: string, year: string): Promise<Complaint[]> {
   const url = `${RECALLS.replace('/recalls', '/complaints')}/complaintsByVehicle?make=${encodeURIComponent(make.toLowerCase())}&model=${encodeURIComponent(model.toLowerCase())}&modelYear=${encodeURIComponent(year)}`;
 
-  const response = await fetchWithBackoff(url);
-  const body = await response.json();
+  // The complaints endpoint returns **HTTP 400 with a success body** when it holds
+  // nothing for a model year:
+  //
+  //   400  {"count":0,"message":"Results returned successfully","results":[]}
+  //
+  // A 2015 F-150 does this while returning 14 recall campaigns from the sibling
+  // endpoint, and the 2016 returns 63 complaints normally. Treating that 400 as a
+  // failure loses the entire fault history for the vehicle; treating it as a hard error
+  // would be worse still, because the caller would report "no data" as "nothing wrong".
+  // So the 400 is tolerated here and the body is inspected instead of the status.
+  const response = await fetchWithBackoff(url, 3, [400]);
+  const body = await response.json().catch(() => null);
+
+  if (!response.ok && !Array.isArray(body?.results)) {
+    throw new UpstreamError(`Complaints endpoint refused the request (${response.status})`, response.status);
+  }
+
   const rows: unknown[] = body?.results ?? [];
 
   return rows.map((row) => {

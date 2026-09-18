@@ -73,6 +73,12 @@ export async function GET(request: Request) {
         recalls: recalls.value,
         analysis,
         analysisFailed,
+        // NHTSA's complaints endpoint has coverage gaps: a 2015 F-150 returns 14 recall
+        // campaigns and zero complaints, while the 2016 returns 63. Reporting "no
+        // complaints" there would be a false clean bill of health, so the two cases are
+        // distinguished rather than collapsed.
+        complaintsCoverageGap: analysis !== null && analysis.totalComplaints === 0 && recalls.value.length > 0,
+        nothingOnFile: analysis !== null && analysis.totalComplaints === 0 && recalls.value.length === 0,
         summaries,
         summariesFrom: summariesEnabled() ? 'model' : 'nhtsa',
         cache: {

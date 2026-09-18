@@ -169,6 +169,39 @@ The verdict I kept is **"no recall covers this"**, because that is a fact about 
 datasets rather than an inference about cause. This was the most interesting hour of the
 build: the feature that looked best in a demo was the one that had to go.
 
+### A 400 that means success, and the false clean bill of health it nearly caused
+
+Checking a 2015 F-150 returned 14 recall campaigns and no fault history at all. The
+analysis had failed silently and the page implied the complaint side was simply empty.
+
+The cause:
+
+```
+GET /complaints/complaintsByVehicle?make=ford&model=f-150&modelYear=2015
+400  {"count":0,"message":"Results returned successfully","results":[]}
+```
+
+**HTTP 400 with a body announcing success.** My backoff layer did the right thing by its
+own rules — 400 is a client error, not retryable, so it threw — and the whole fault
+history went with it.
+
+I had initially assumed a model-name mismatch and was about to build fuzzy name
+matching. Testing across years disproved it: the same `f-150` string returns 0
+complaints for 2012–2015 and 63 for 2016. It is a per-model-year data gap, announced
+with the wrong status code. Fuzzy matching would have been an elaborate fix for a bug
+that did not exist.
+
+So `fetchComplaints` now tolerates 400 specifically and decides on the body, and the app
+distinguishes **"no complaints on file"** from **"the complaints database has nothing
+for this model year"**. The second renders as *"fault history unavailable — not clean"*.
+
+That distinction matters more than anything else in this build: reporting missing safety
+data as a clean record is the most dangerous thing this app could do.
+
+Worth noting alongside quirk one: the same organisation returns **200 when it failed**
+on vPIC and **400 when it succeeded** on complaints. Status codes are decoration here;
+the body is the truth.
+
 ### Component names do not match between the two datasets
 
 A complaint says `AIR BAGS`. The recall covering it says
@@ -238,6 +271,9 @@ Small, but it is the kind of detail that makes a page look machine-generated.
 - **Complaint volume is not a defect rate.** NHTSA publishes no production figures, so
   271 complaints on a common truck cannot be normalised against a rare one. The app
   reports counts and says so rather than implying a rate.
+- **Some model years have no complaint data at all** — a 2015 F-150 returns none while
+  the 2016 returns 63. The app reports this as unavailable rather than clean, but it
+  cannot fill the gap.
 - **`UNKNOWN OR OTHER` shows up as a finding.** It is a real NHTSA category and not very
   actionable. Kept rather than hidden, because dropping it would quietly change the
   percentages the app reports.

@@ -158,7 +158,26 @@ production and would rather defend a deliberate choice than pad the stack.
    Rounded at the normalisation boundary.
 6. **`parkIt` and `parkOutSide` arrive as booleans in some rows and strings in others**,
    so both forms are coerced.
-7. **The two datasets name components differently.** A complaint says `AIR BAGS`; a
+7. **The complaints endpoint returns HTTP 400 with a success body.** For a model year it
+   holds nothing for, it answers:
+
+   ```
+   400  {"count":0,"message":"Results returned successfully","results":[]}
+   ```
+
+   A 2015 F-150 does exactly this — while the sibling recalls endpoint returns 14
+   campaigns for the same make, model and year, and the 2016 F-150 returns 63 complaints
+   normally. So this is a per-model-year data gap announced with the wrong status code.
+
+   Combined with quirk 1, the same organisation returns **200 when it failed** on one
+   endpoint and **400 when it succeeded** on another. Neither can be trusted on status
+   alone; both are decided by inspecting the body.
+
+   The app distinguishes *"no complaints on file"* from *"the complaints database has
+   nothing for this model year"* and says **"fault history unavailable — not clean"**
+   for the second. Reporting an empty fault history as a clean one would be the single
+   most dangerous thing this app could do.
+8. **The two datasets name components differently.** A complaint says `AIR BAGS`; a
    recall says `AIR BAGS:FRONTAL:DRIVER SIDE:INFLATOR MODULE`. Matching is therefore on
    shared significant words rather than equality — an exact match would report almost
    everything as "never recalled", which would be worse than useless.

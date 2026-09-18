@@ -17,6 +17,8 @@ type Payload = {
   recalls: Recall[];
   analysis: Analysis | null;
   analysisFailed: boolean;
+  complaintsCoverageGap: boolean;
+  nothingOnFile: boolean;
   summaries: Summary[];
   summariesFrom: 'model' | 'nhtsa';
   cache: { decodeAgeMs: number; recallsAgeMs: number; stale: boolean };
@@ -263,6 +265,38 @@ export function Lookup() {
           )}
 
           {data.analysis && <Findings analysis={data.analysis} />}
+
+          {data.complaintsCoverageGap && (
+            <section className="panel lift p-4 sm:p-5" style={{ animationDelay: '90ms' }}>
+              <h2 className="flex items-center gap-2 text-[15px] font-semibold" style={{ color: 'var(--warning)' }}>
+                <SeverityIcon level="serious" />
+                Fault history unavailable — not clean
+              </h2>
+              <p className="mt-1.5 text-[13px] text-ink-secondary">
+                NHTSA returned {data.recalls.length} recall {data.recalls.length === 1 ? 'campaign' : 'campaigns'} for
+                this vehicle but <strong className="font-medium text-ink">no complaints at all</strong>, which is
+                not the same as none existing. Their complaints endpoint has coverage gaps by model
+                year — a 2015 F-150 returns zero while the 2016 returns 63.
+              </p>
+              <p className="mt-2 text-[13px] text-ink-muted">
+                Treat the owner-complaint side of this report as missing rather than empty.
+              </p>
+            </section>
+          )}
+
+          {data.nothingOnFile && (
+            <section className="panel lift p-4 sm:p-5" style={{ animationDelay: '90ms' }}>
+              <h2 className="flex items-center gap-2 text-[15px] font-semibold" style={{ color: 'var(--warning)' }}>
+                <SeverityIcon level="serious" />
+                NHTSA holds nothing for this vehicle
+              </h2>
+              <p className="mt-1.5 text-[13px] text-ink-secondary">
+                No recall campaigns and no complaints came back. That can mean a genuinely clean
+                record, or that NHTSA files this model under a different name than the VIN decoder
+                returns. Confirm before treating it as clear.
+              </p>
+            </section>
+          )}
 
           {data.analysisFailed && (
             <p className="panel lift p-4 text-[13px] text-ink-secondary">
