@@ -1,0 +1,158 @@
+# Build Log: Recall Radar
+
+## Goal & scope decision
+
+Before a used car is listed, somebody should check whether it carries an open safety
+recall. An unrepaired recall is a liability to sell, a disclosure problem, and a
+negotiating lever when buying a trade-in. Most small dealers check this never, or one
+car at a time on a government website.
+
+Deliberately out of scope for the time-box: no accounts, no persistence beyond the
+cache, no recall *repair* tracking, no non-US data sources, no OCR of VIN plates.
+
+## Stack & tooling
+
+- **Next.js 16 with route handlers as a backend-for-frontend.** The browser never talks
+  to NHTSA directly.
+- **No database.** Nothing here needs to be remembered between visits; the only state is
+  a cache, and a cache belongs in memory.
+- **No Redis.** Single instance, no cross-instance cache requirement, so a process-local
+  map with per-entry TTLs is the right amount of machinery. I have also not run Redis in
+  production and would rather explain a deliberate choice than pad a stack. The
+  trade-off is stated in `lib/cache.ts`: on a serverless platform each instance holds
+  its own cache, so this lowers fan-out rather than guaranteeing a global hit rate.
+- **No chart library, no component library.** The UI is one screen and hand-built.
+
+## Key decisions & trade-offs
+
+*(appended as each decision was made)*
+
+### I measured the upstream before designing for it, and my assumptions were wrong
+
+I had planned to justify the caching layer on NHTSA being slow and rate-limited. Before
+writing any code I measured it:
+
+| | |
+|---|---|
+| vPIC decode | ~0.6s |
+| Recalls lookup | 0.3–0.9s |
+| Published rate limit | none that I could find |
+| 429 observed | never |
+
+So "it's slow" was false and "it rate-limits" was unverified. The cache is still
+correct, but it needed a reason I could defend:
+
+- **Fan-out.** A lot sweep is *two* calls per vehicle — decode, then recalls. Ten cars
+  is twenty requests against a public `.gov` service from one page view.
+- **Genuinely different TTLs.** A decoded VIN is immutable: the same VIN decodes the same
+  way forever, so it can be cached for thirty days. Recall campaigns change monthly at
+  most, so six hours. Those are not the same number.
+- **Coalescing.** Ten concurrent lookups of one VIN become one upstream call.
+
+And the backoff is described in the docs as *defensive* — for when the upstream
+misbehaves — rather than implying I had measured a limit. I also declined to hammer a
+government API just to manufacture evidence for my own design.
+
+### HTTP 200 is not success
+
+vPIC answers `200 OK` even when it cannot decode the VIN; the failure is inside the body
+as `ErrorCode`. `0` means clean, `1` means the check digit does not calculate, and codes
+like `5,6,14` mean it could not decode at all.
+
+Status-code-only error handling would have shown a confident, empty result for a car
+that does not exist. So the upstream layer inspects the payload, and a VIN that decodes
+without a make or model year raises `VinDecodeError`, which the route maps to `422` with
+NHTSA's own explanation passed through to the user.
+
+The check-digit case is treated as a *warning*, not a failure — NHTSA still decodes
+those, and a mistyped VIN that decodes to a plausible car is worth flagging rather than
+rejecting.
+
+### Two APIs, two capitalisations
+
+vPIC is on `vpic.nhtsa.dot.gov` and returns `Results`. Recalls are on `api.nhtsa.gov`
+and return `results`. Same organisation, different host, different envelope, different
+case. The recalls API also only accepts make/model/year, never a VIN — which is exactly
+why the decode has to happen first and why fusing the two server-side is the point of
+the BFF rather than a decoration on it.
+
+### Severity comes from the data, not from me
+
+NHTSA ships `parkIt` ("do not drive") and `parkOutSide` ("fire risk, park away from
+buildings") flags. Those are far better than a list sorted by date: they are the
+difference between a car you can sell today and one that should not be moved. The UI
+ranks critical, then serious, then standard, and the verdict headline reports the
+"do not drive" count first if there is one.
+
+Every severity level carries an icon and a text label as well as a colour, so the
+meaning never rests on hue alone.
+
+### The wording is deliberately narrower than the feature
+
+The single most important fact about this app is what it *cannot* tell you: NHTSA
+answers by make/model/year, so it reports open campaigns for a model, not repair status
+for a car. Every surface says so — the verdict card, the footer, the README — because a
+tool that overstates what it knows about a safety recall is worse than no tool.
+
+### Summaries are optional, so the repo runs with no keys at all
+
+Plain-language summaries need a model API key, and there isn't one available. Rather
+than stub the feature, it degrades: with `ANTHROPIC_API_KEY` set the call happens
+server-side and the key never reaches the browser; without it the app shows NHTSA's own
+consequence text and says so in the header and beside each notice.
+
+The upside outweighs the feature: a reviewer can clone this and run it with no keys and
+no signup.
+
+## Hard parts / dead ends
+
+### vPIC's idea of an engine size
+
+The decoder returns displacement as `2.998832712`. Nobody describes a car as having a
+2.998832712-litre engine. Rounded to one decimal at the normalisation boundary, along
+with horsepower, which arrives with similar spurious precision.
+
+Small, but it is the kind of detail that makes a page look machine-generated.
+
+## How I verified it works
+
+*(appended as it happened)*
+
+- **Clean VIN** — `1HGCM82633A004352` decodes to a 2003 Honda Accord Coupe with 24 open
+  campaigns. `ErrorCode 0`, no check-digit warning.
+- **Cache behaviour** — the same lookup cold took **1,186ms**; immediately repeated it
+  took **9ms**. The response carries the cache age so the UI can label it.
+- **Malformed input** — a 6-character VIN and a VIN containing `I` both return `400`
+  with a specific message rather than a generic failure.
+- **Undecodable but well-formed** — `ZZZZZZZZZZZZZZZZZ` returns `422` carrying NHTSA's
+  own error text (`1,7,11,400` — check digit, unregistered manufacturer, invalid model
+  year position, invalid characters).
+- **Severity ordering** — `1FTZR45E36PA12345` (2006 Ford Ranger) returns 12 campaigns of
+  which 4 are `parkIt`; all four sort above the other eight and the verdict reads
+  "4 'do not drive' recalls".
+- **Sweep with a partial failure** — four VINs, one deliberately invalid: the three good
+  ones resolved and the bad one failed *individually* rather than failing the whole
+  request.
+
+## Known limitations
+
+*(appended as they appeared)*
+
+- **US-market data only.** A GCC-spec car may decode partially or not at all. This is a
+  real limitation for a Dubai dealer and it is stated on the page itself, not just here.
+- **Recalls are model-level, not VIN-level.** See above. This is the most important
+  caveat in the project.
+- **Plain-language summaries are off** without a model API key.
+- **The cache is per-instance.** On a serverless platform, a cold instance starts empty
+  and instances do not share entries.
+- **Backoff is untested against a real 429**, because NHTSA never sent me one. The retry
+  path is exercised by timeouts and 5xx handling, not by an observed rate limit.
+
+## Time spent
+
+Rough effort by phase, filled in at the end:
+
+- Measuring the upstream APIs and their quirks — 
+- Cache, upstream layer and BFF route — 
+- UI, states and motion — 
+- Verification, docs and deploy — 
