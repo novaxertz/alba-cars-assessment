@@ -1,0 +1,471 @@
+{
+  "name": "Nightly markdown review",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 6
+            }
+          ]
+        }
+      },
+      "id": "sched",
+      "name": "Every night at 06:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -460,
+        120
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "manual",
+      "name": "Run now (demo)",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://YOUR-PROJECT-REF.supabase.co/rest/v1/vehicle_ageing",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "id,owner_id,vin,make,model,year,status,days_on_lot,holding_cost_aed,list_price_aed,acquisition_cost_aed,margin_at_list_aed,ageing_bucket"
+            },
+            {
+              "name": "status",
+              "value": "eq.available"
+            },
+            {
+              "name": "days_on_lot",
+              "value": "gte.30"
+            },
+            {
+              "name": "order",
+              "value": "days_on_lot.desc"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fetch",
+      "name": "Fetch aged inventory",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -200,
+        200
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput",
+      "notes": "Supabase credential sends BOTH apikey and Authorization. With apikey alone this returns 200 and an empty array - authenticated as anon, RLS hides every row, and the run looks healthy while doing nothing."
+    },
+    {
+      "parameters": {
+        "url": "=https://alba-second-opinion.vercel.app/api/lookup?vin={{ $json.vin }}",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "id": "recalls",
+      "name": "Check open recalls",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        60,
+        300
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1500,
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true,
+      "notes": "Second source: task 01's API. Allowed to fail - a VIN that will not decode must not stop the pricing review. Failures fall through as empty and are reported as 'unknown', never as 'no recalls'."
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {
+          "includeUnpaired": true
+        }
+      },
+      "id": "merge",
+      "name": "Merge recall data",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        280,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const RATE = { watch: 0.03, act: 0.06, urgent: 0.10 };\n\nfunction bucket(days) {\n  if (days >= 90) return 'urgent';\n  if (days >= 60) return 'act';\n  return 'watch';\n}\n\n// Round to the nearest 500 AED. Nobody lists a car at 47,312.\nconst round500 = (n) => Math.max(500, Math.round(n / 500) * 500);\n\nconst out = [];\n\nfor (const item of $input.all()) {\n  const v = item.json;\n\n  const days = Number(v.days_on_lot);\n  const current = Number(v.list_price_aed);\n  const cost = Number(v.acquisition_cost_aed);\n  const holding = Number(v.holding_cost_aed);\n  const margin = Number(v.margin_at_list_aed);\n\n  const severity = bucket(days);\n  let cut = RATE[severity];\n\n  // Already under water: cutting further only deepens the loss, so recommend the\n  // smallest move that might actually shift it rather than a percentage of a price\n  // that is no longer the problem.\n  const underwater = margin < 0;\n  if (underwater) cut = Math.min(cut, 0.04);\n\n  const recommended = round500(current * (1 - cut));\n\n  // The recall check is a second source and is allowed to fail \u2014 see the workflow's\n  // error handling. Absent data must never read as \"no recalls\".\n  //\n  // The Merge node hands over task 01's raw API response, so the recall list arrives as\n  // `recalls`, an array. An earlier version of this code expected a pre-summarised\n  // `recall` object, which silently made every car read as \"unknown\" and meant the\n  // do-not-retail branch never fired. Both shapes are accepted now, and anything else\n  // is treated as unknown rather than clear.\n  let recallKnown = false;\n  let parkIt = 0;\n  let openCampaigns = null;\n\n  if (Array.isArray(v.recalls)) {\n    recallKnown = true;\n    openCampaigns = v.recalls.length;\n    parkIt = v.recalls.filter((r) => r && (r.parkIt === true || r.parkIt === 'true')).length;\n  } else if (v.recall && v.recall.ok === true) {\n    recallKnown = true;\n    openCampaigns = v.recall.campaigns ?? null;\n    parkIt = v.recall.parkIt ?? 0;\n  }\n\n  const reasons = [];\n  reasons.push(`${days} days on the lot, ${holding.toLocaleString()} AED of carrying cost so far`);\n  if (underwater) reasons.push(`asking price no longer covers cost plus carry (margin ${margin.toLocaleString()} AED)`);\n  else reasons.push(`margin at list ${margin.toLocaleString()} AED`);\n\n  if (parkIt > 0) reasons.push(`${parkIt} \"do not drive\" recall${parkIt === 1 ? '' : 's'} open \u2014 do not retail until repaired`);\n  else if (openCampaigns) reasons.push(`${openCampaigns} open recall campaign${openCampaigns === 1 ? '' : 's'}`);\n  else if (!recallKnown) reasons.push('recall status unavailable, not confirmed clear');\n\n  out.push({\n    json: {\n      vehicle_id: v.id,\n      owner_id: v.owner_id,\n      vin: v.vin,\n      label: `${v.year ?? ''} ${v.make} ${v.model}`.trim(),\n      days_on_lot: days,\n      holding_cost_aed: Math.round(holding),\n      current_price_aed: current,\n      recommended_price_aed: recommended,\n      cut_aed: current - recommended,\n      severity,\n      // parkIt outranks ageing: a car that should not be driven is not a pricing problem\n      priority: parkIt > 0 ? 'blocked' : severity,\n      rationale: reasons.join('. ') + '.',\n      recall_known: Boolean(recallKnown),\n      park_it: parkIt,\n      open_campaigns: openCampaigns,\n      cost_aed: cost,\n    },\n  });\n}\n\nreturn out;\n"
+      },
+      "id": "score",
+      "name": "Score the markdown",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        500,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.priority }}",
+                    "rightValue": "blocked",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Do not retail"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "Price review"
+        }
+      },
+      "id": "switch",
+      "name": "Retail or repair first?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        720,
+        200
+      ],
+      "notes": "The two paths do different things, which is the point of branching here. A car with an open 'do not drive' recall does not get a markdown - you do not discount a car you should not be retailing, you get the recall closed first. Everything else goes to the pricing path.",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR-PROJECT-REF.supabase.co/rest/v1/markdown_recommendations?on_conflict=vehicle_id,run_date",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "resolution=ignore-duplicates,return=representation"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ vehicle_id: $json.vehicle_id, owner_id: $json.owner_id, days_on_lot: $json.days_on_lot, holding_cost_aed: $json.holding_cost_aed, current_price_aed: $json.current_price_aed, recommended_price_aed: $json.recommended_price_aed, severity: $json.severity, rationale: $json.rationale }) }}",
+        "options": {}
+      },
+      "id": "record",
+      "name": "Record recommendation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        980,
+        200
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput",
+      "alwaysOutputData": true,
+      "notes": "Idempotency. The table has UNIQUE (vehicle_id, run_date). on_conflict names that constraint as the conflict target - without it PostgREST infers the primary key and still returns 409, which is how this was found. With it, a same-day repeat returns 201 and an empty array: nothing written, nothing raised. Run the workflow twice and the second digest reports 0 new."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Builds the message that actually gets delivered, and counts what the idempotency\n// guard did. PostgREST with Prefer: resolution=ignore-duplicates returns the rows it\n// inserted and silently omits the ones that collided with the unique constraint \u2014 so\n// \"written\" versus \"already recorded\" falls straight out of the response.\n\nconst everything = $('Score the markdown').all().map((i) => i.json);\n\n// Cars held back by a \"do not drive\" recall never reach the markdown table - they are\n// alerted on their own path - so they must not be counted as \"skipped\" here.\nconst blocked = everything.filter((s) => s.priority === 'blocked');\nconst scored = everything.filter((s) => s.priority !== 'blocked');\nconst written = $input.all().flatMap((i) => (Array.isArray(i.json) ? i.json : [i.json])).filter((r) => r && r.id);\n\nconst writtenIds = new Set(written.map((r) => r.vehicle_id));\nconst skipped = scored.filter((s) => !writtenIds.has(s.vehicle_id));\n\nconst urgent = scored.filter((s) => s.severity === 'urgent');\nconst totalCut = scored.reduce((n, s) => n + s.cut_aed, 0);\n\nconst money = (n) => `AED ${Number(n).toLocaleString()}`;\nconst line = (s) => `\u2022 *${s.label}* (${s.vin.slice(-6)}) \u2014 ${s.days_on_lot}d \u00b7 ${money(s.current_price_aed)} \u2192 ${money(s.recommended_price_aed)} (\u2212${money(s.cut_aed)})`;\n\nconst parts = [];\nparts.push(`*Nightly markdown review \u2014 ${new Date().toISOString().slice(0, 10)}*`);\nparts.push(`${scored.length} vehicles past 30 days. ${written.length} new recommendation(s) recorded, ${skipped.length} already recorded today.`);\n\nif (blocked.length) {\n  parts.push('');\n  parts.push(`${blocked.length} vehicle(s) held back for open \"do not drive\" recalls - posted separately.`);\n}\n\nif (urgent.length) {\n  parts.push('');\n  parts.push(`*Over 90 days (${urgent.length})*`);\n  urgent.forEach((s) => parts.push(line(s)));\n}\n\nconst rest = scored.filter((s) => s.severity !== 'urgent');\nif (rest.length) {\n  parts.push('');\n  parts.push(`*Watch list (${rest.length})*`);\n  rest.forEach((s) => parts.push(line(s)));\n}\n\nparts.push('');\nparts.push(`Total proposed reduction: ${money(totalCut)}. Nothing has been applied \u2014 these are recommendations for a human to approve.`);\n\nconst unknownRecalls = scored.filter((s) => !s.recall_known).length;\nif (unknownRecalls) parts.push(`_Recall status unavailable for ${unknownRecalls} vehicle(s); treated as unknown, not clear._`);\n\nlet content = parts.join('\\n');\n\n// Discord rejects anything over 2000 characters with a 400, which would lose the whole\n// digest rather than the tail of it. Trim to the last complete line that fits.\nconst LIMIT = 1900;\nif (content.length > LIMIT) {\n  const kept = content.slice(0, LIMIT).split('\\n').slice(0, -1).join('\\n');\n  content = kept + `\\n_\u2026truncated. ${scored.length} vehicles in full; see the dashboard._`;\n}\n\nreturn [{ json: { content, written: written.length, skipped: skipped.length } }];\n"
+      },
+      "id": "digest",
+      "name": "Build the digest",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1240,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://discord.com/api/webhooks/REPLACE-WITH-YOUR-WEBHOOK",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ content: $json.content }) }}",
+        "options": {}
+      },
+      "id": "post",
+      "name": "Post the digest",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1480,
+        120
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "notes": "Discord channel webhook. Channel > Edit Channel > Integrations > Webhooks > New Webhook > Copy URL. The same URL goes in both post nodes - one is the nightly digest, the other only fires from the handled error branch. Discord reads 'content' and caps a message at 2000 characters, so the digest is truncated before sending rather than being silently rejected.",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// The handled failure branch. One bad response must not end the run silently \u2014 the\n// point of error handling is that somebody finds out, and that they are told enough to\n// act without opening n8n.\n\nconst item = $input.first().json ?? {};\n\n// n8n shapes the error output differently depending on where it came from, so try the\n// forms it actually uses rather than assuming one.\nconst raw = item.error ?? item;\nconst message =\n  (typeof raw === 'string' && raw) ||\n  raw?.message ||\n  raw?.description ||\n  item.message ||\n  'unknown error';\n\n// $prevNode is the node that routed into this one, which is the stage that failed.\nconst stage = $prevNode?.name || 'unknown stage';\n\nconst hint =\n  /credential/i.test(message)\n    ? 'Attach the Supabase credential to the Supabase nodes, then run again.'\n    : /fetch|ENOTFOUND|ETIMEDOUT|socket/i.test(message)\n      ? 'Upstream did not respond. It was retried with backoff before this alert.'\n      : 'Open the execution in n8n for the full trace.';\n\nconst text = [\n  '**Nightly markdown review FAILED**',\n  `Stage: ${stage}`,\n  `Error: ${message}`,\n  `Next: ${hint}`,\n  '',\n  'No recommendations were recorded for this run. Re-running today is safe \u2014 the unique',\n  'constraint on (vehicle, run date) means a partial run cannot create duplicates.',\n].join('\\n');\n\nreturn [{ json: { content: text } }];\n"
+      },
+      "id": "failure",
+      "name": "Explain the failure",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1240,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://discord.com/api/webhooks/REPLACE-WITH-YOUR-WEBHOOK",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ content: $json.content }) }}",
+        "options": {}
+      },
+      "id": "alert",
+      "name": "Post the failure alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1480,
+        380
+      ],
+      "notes": "Discord channel webhook. Channel > Edit Channel > Integrations > Webhooks > New Webhook > Copy URL. The same URL goes in both post nodes - one is the nightly digest, the other only fires from the handled error branch. Discord reads 'content' and caps a message at 2000 characters, so the digest is truncated before sending rather than being silently rejected.",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// The \"do not retail\" path. These cars are not a pricing problem, so they never reach\n// the markdown table - they get their own message, immediately.\n\nconst cars = $input.all().map((i) => i.json);\nif (cars.length === 0) return [];\n\nconst money = (n) => `AED ${Number(n).toLocaleString()}`;\n\nconst lines = ['**Do not retail - open \"do not drive\" recalls**', ''];\nfor (const c of cars) {\n  lines.push(`- **${c.label}** (${c.vin})`);\n  lines.push(`   ${c.park_it} \"do not drive\" recall(s) open - ${c.days_on_lot} days on the lot - asking ${money(c.current_price_aed)}`);\n  lines.push('   Get the recall closed before this is listed. No markdown recommended.');\n}\nlines.push('');\nlines.push('_Recall data from NHTSA, by make/model/year. Confirm with the manufacturer whether this specific car has already been repaired._');\n\nreturn [{ json: { content: lines.join('\\n') } }];\n"
+      },
+      "id": "blockedmsg",
+      "name": "Compose the do-not-retail alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        980,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://discord.com/api/webhooks/REPLACE-WITH-YOUR-WEBHOOK",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ content: $json.content }) }}",
+        "options": {}
+      },
+      "id": "blockedpost",
+      "name": "Post the do-not-retail alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1240,
+        -60
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "notes": "Discord channel webhook. Channel > Edit Channel > Integrations > Webhooks > New Webhook > Copy URL. The same URL goes in both post nodes - one is the nightly digest, the other only fires from the handled error branch. Discord reads 'content' and caps a message at 2000 characters, so the digest is truncated before sending rather than being silently rejected.",
+      "notesInFlow": true
+    }
+  ],
+  "connections": {
+    "Every night at 06:00": {
+      "main": [
+        [
+          {
+            "node": "Fetch aged inventory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run now (demo)": {
+      "main": [
+        [
+          {
+            "node": "Fetch aged inventory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch aged inventory": {
+      "main": [
+        [
+          {
+            "node": "Merge recall data",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Check open recalls",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Explain the failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check open recalls": {
+      "main": [
+        [
+          {
+            "node": "Merge recall data",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge recall data": {
+      "main": [
+        [
+          {
+            "node": "Score the markdown",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Score the markdown": {
+      "main": [
+        [
+          {
+            "node": "Retail or repair first?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record recommendation": {
+      "main": [
+        [
+          {
+            "node": "Build the digest",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Explain the failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build the digest": {
+      "main": [
+        [
+          {
+            "node": "Post the digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Explain the failure": {
+      "main": [
+        [
+          {
+            "node": "Post the failure alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retail or repair first?": {
+      "main": [
+        [
+          {
+            "node": "Compose the do-not-retail alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Record recommendation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose the do-not-retail alert": {
+      "main": [
+        [
+          {
+            "node": "Post the do-not-retail alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Dubai",
+    "saveManualExecutions": true
+  },
+  "pinData": {}
+}

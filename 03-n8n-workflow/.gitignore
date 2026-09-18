@@ -1,0 +1,2 @@
+# Import copy with the real project ref filled in — never committed
+*.local.json

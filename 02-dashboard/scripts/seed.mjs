@@ -46,6 +46,11 @@ const DEALER_A = [
   // the units that are genuinely bleeding
   { vin: 'WP0AB2A75JL13322', make: 'Porsche', model: '718 Cayman', year: 2018, mileage_km: 59000, acquired: 121, cost: 210000, list: 219000, markdowns: [[239000, 229000, 'manual'], [229000, 219000, 'scheduled_markdown']] },
   { vin: 'JTHBK1GG3F21100A', make: 'Lexus', model: 'ES 350',     year: 2016, mileage_km: 154000, acquired: 148, cost: 44000, list: 47500, markdowns: [[54000, 51000, 'manual'], [51000, 49000, 'scheduled_markdown'], [49000, 47500, 'automation']] },
+  // A real, decodable VIN on purpose. This 2006 Ranger carries four Takata "do not
+  // drive" recalls, so the recall check in 01 flags it and the nightly agent in 03
+  // routes it away from the markdown path entirely — you do not discount a car you
+  // should not be retailing, you get the recall done first.
+  { vin: '1FTZR45E36PA12345', make: 'Ford', model: 'Ranger',     year: 2006, mileage_km: 178000, acquired: 104, cost: 19000, list: 24000, markdowns: [[26000, 24000, 'manual']] },
   // one already sold, so the charts have a completed life cycle in them
   { vin: 'MALA751AAFM30012', make: 'Kia', model: 'Rio',          year: 2019, mileage_km:  67000, acquired: 96,  cost: 23000, list: 28000, soldAfter: 71, soldFor: 27000 },
 ];
