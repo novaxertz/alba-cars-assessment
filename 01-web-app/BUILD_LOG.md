@@ -1,14 +1,26 @@
-# Build Log: Recall Radar
+# Build Log: Second Opinion
 
 ## Goal & scope decision
 
-Before a used car is listed, somebody should check whether it carries an open safety
-recall. An unrepaired recall is a liability to sell, a disclosure problem, and a
-negotiating lever when buying a trade-in. Most small dealers check this never, or one
-car at a time on a government website.
+**The first version was a recall lookup, and it read as a wrapper.** Paste a VIN, see a
+list — competent, and nothing the government's own site does not already do. It fetched,
+normalised and displayed, but it never *computed* anything. That criticism was fair and
+is the reason for the reframe below.
+
+The product now is the **disagreement between two datasets**. NHTSA publishes what
+manufacturers have been forced to admit (recalls) and what owners actually experienced
+(complaints). Neither is interesting alone: the recall list is on every car site, and
+271 raw complaints are unreadable. The gap between them is published nowhere, and it is
+the part a buyer needs — components owners keep reporting that no campaign has ever
+covered carry no remedy, no free repair and no paper trail.
+
+For a 2006 Ford Ranger: 35% of 271 complaints, led by suspension with 19 reports, one of
+which involved a crash.
 
 Deliberately out of scope for the time-box: no accounts, no persistence beyond the
-cache, no recall *repair* tracking, no non-US data sources, no OCR of VIN plates.
+cache, no recall *repair* tracking, no non-US data sources, no OCR of VIN plates, and no
+attempt to normalise complaint counts into a defect rate (NHTSA publishes no production
+figures to divide by).
 
 ## Stack & tooling
 

@@ -26,6 +26,9 @@ export function DefectTimeline({ analysis }: { analysis: Analysis }) {
   const H = 168;
   const PAD_L = 30;
   const PAD_B = 34;
+  // Headroom for the direct label above the tallest bar — without it the peak figure
+  // renders outside the viewBox and gets clipped.
+  const PAD_T = 22;
   const max = Math.max(...timeline.map((t) => t.complaints), 1);
   const slot = (W - PAD_L - 8) / timeline.length;
   const barW = Math.max(3, Math.min(26, slot - 4));
@@ -59,7 +62,7 @@ export function DefectTimeline({ analysis }: { analysis: Analysis }) {
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={`Complaints per year from ${analysis.windowFrom} to ${analysis.windowTo}, peaking at ${max}`}>
         {/* gridlines */}
         {[0, 0.5, 1].map((f) => {
-          const y = (H - PAD_B) - f * (H - PAD_B - 10);
+          const y = (H - PAD_B) - f * (H - PAD_B - PAD_T);
           return (
             <g key={f}>
               <line x1={PAD_L} x2={W - 4} y1={y} y2={y} stroke="var(--hairline)" strokeWidth="1" />
@@ -70,8 +73,8 @@ export function DefectTimeline({ analysis }: { analysis: Analysis }) {
 
         {timeline.map((t, i) => {
           const x = PAD_L + i * slot + (slot - barW) / 2;
-          const full = (t.complaints / max) * (H - PAD_B - 10);
-          const harm = (t.harm / max) * (H - PAD_B - 10);
+          const full = (t.complaints / max) * (H - PAD_B - PAD_T);
+          const harm = (t.harm / max) * (H - PAD_B - PAD_T);
           const base = H - PAD_B;
 
           return (

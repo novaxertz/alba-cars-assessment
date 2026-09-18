@@ -222,7 +222,7 @@ is dynamic.
 **Lighthouse: not measured.** Chrome is not installed on this machine and the anonymous
 PageSpeed Insights quota was exhausted when I tried, so I am not going to quote a score
 I did not take. Run it yourself here:
-[pagespeed.web.dev](https://pagespeed.web.dev/analysis?url=https://alba-recall-radar.vercel.app).
+[pagespeed.web.dev](https://pagespeed.web.dev/analysis?url=https://alba-second-opinion.vercel.app).
 
 **What I would add with more time:** an automated test suite around the upstream
 normalisation (the `ErrorCode` branches and the boolean/string coercion are exactly the

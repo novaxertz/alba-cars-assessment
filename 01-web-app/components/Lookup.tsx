@@ -143,7 +143,7 @@ export function Lookup() {
             disabled={loading}
             className="rounded-xl bg-white px-6 py-3 text-[15px] font-semibold text-black transition-all hover:bg-[#e9e9e4] active:scale-[0.985] disabled:opacity-50"
           >
-            {loading ? 'Checking…' : 'Check recalls'}
+            {loading ? 'Checking…' : 'Check this car'}
           </button>
         </div>
 
