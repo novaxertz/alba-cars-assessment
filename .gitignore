@@ -1,0 +1,14 @@
+node_modules/
+.next/
+dist/
+build/
+.env
+.env.local
+.env.*.local
+*.pem
+.DS_Store
+.vercel
+coverage/
+
+# Local working notes, not part of the deliverable
+private/
