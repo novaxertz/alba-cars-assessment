@@ -91,18 +91,42 @@ this never, or one car at a time, on a slow government website.
 **What it does.** Paste a VIN (or a batch from the lot): decoded specs, any open
 recalls, and a plain-language summary of what each recall means for a buyer.
 
-**Why this upstream.** Every decision below is defensible because NHTSA really behaves
-this way, and the recall summaries really cost money:
-- the summarising model call needs an API key that can never reach the browser → the
-  BFF exists for a concrete reason, demonstrated rather than asserted
-- vPIC is genuinely slow, and a lot-wide sweep is N VINs of fan-out → caching is
-  mandatory, not decorative
-- per-resource TTLs are a real trade-off with numbers attached: decoded specs for a
-  VIN are immutable (cache indefinitely), recalls change rarely (hours), and model
-  summaries are cached because **each miss costs tokens** — a stronger reason than speed
-- NHTSA drops requests under load → retry with backoff handles a real failure
-- upstream outage → serve last-known recall data with its age shown and labelled
-  stale, because flagged-stale safety data beats a blank screen
+**Why this upstream.** Measured before designing, rather than assumed — and the first
+round of assumptions was wrong, which is recorded here on purpose:
+
+- vPIC responds in about 0.6s and the recalls API in 0.3–0.9s. **They are not slow.** An
+  earlier version of this file justified the caching layer on upstream latency; that
+  claim did not survive measurement.
+- What is true is **fan-out**: a lot-wide sweep is two calls per vehicle (decode, then
+  recalls), so ten cars is twenty calls against a public .gov service on one page view.
+  Caching and coalescing are justified by that.
+- **Per-resource TTLs are genuinely different.** A decoded VIN is immutable, so it can be
+  cached indefinitely. Recall campaigns change monthly at most, so hours. That is a real
+  distinction, not a decorative one.
+- **Retry with backoff is defensive.** NHTSA publishes no rate limit and I did not
+  observe a 429. I am not going to stress a government API to manufacture evidence, so
+  the backoff exists for correctness when the upstream misbehaves, and the docs say
+  exactly that rather than implying an observed limit.
+- **Two APIs, two shapes.** vPIC lives on `vpic.nhtsa.dot.gov` and returns `Results`;
+  recalls live on `api.nhtsa.gov` and return `results`. Different case, different
+  envelope, different host. Normalising that seam is what the BFF is for.
+- **HTTP 200 does not mean success.** vPIC returns 200 with the failure reported inside
+  the payload as `ErrorCode` — `0` is clean, `1` means the check digit does not
+  calculate, and codes like `5,6,14` mean it could not decode. Status-code-only error
+  handling would silently show a car that does not exist.
+- **Recalls are model-level, not VIN-level.** The API answers "does this make/model/year
+  have open campaigns", not "is this specific car unrepaired". VIN-level completion comes
+  only from the manufacturer. This is the most important limitation in the project and
+  belongs at the top of the README, not the bottom.
+- **NHTSA ships severity signals worth surfacing:** `parkIt` ("do not drive") and
+  `parkOutSide` ("fire risk, keep away from buildings"). For a dealer those are
+  do-not-sell-until-repaired flags, and they give the UI a real severity order.
+
+**The optional key.** Plain-language recall summaries need a model API key. There is no
+key available, so summarisation is an *optional enhancement*: when `ANTHROPIC_API_KEY`
+is set it runs server-side and the key never reaches the browser; when it is absent the
+app shows NHTSA's own summary and consequence text with a clear note. The upside is that
+a reviewer can clone this and run it with no keys and no signup at all.
 
 **Relationship to 02.** Loosely coupled on purpose. 02 knows the VIN of every unit, so
 it can hand VINs across, and the interesting question — *which ageing units also carry
@@ -111,7 +135,8 @@ down.
 
 **Deliberately not reached for:** Redis. Single instance, no cross-instance cache
 requirement, so an in-memory LRU with per-resource TTLs is correct — and saying why is
-worth more than adding a dependency. (I have also not run Redis in production, and am not going to pretend otherwise.)
+worth more than adding a dependency. (I have also not run Redis in production and am not
+going to pretend otherwise.)
 
 **Advanced feature implemented:** a backend-for-frontend, described above.
 
