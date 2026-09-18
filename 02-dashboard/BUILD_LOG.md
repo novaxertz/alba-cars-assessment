@@ -63,9 +63,29 @@ This is also what makes the boundary worth *testing* rather than asserting: the
 verification below queries the table, the view and the RPC as user A against user B's
 data, because the three can fail independently.
 
+### 16:52 — Next.js 16, and reading the docs before writing code
+
+The scaffold ships an `AGENTS.md` that says, bluntly, that this is not the Next.js in
+my training data and to read `node_modules/next/dist/docs/` first. Two changes here
+would have cost real debugging time:
+
+- `middleware.ts` is now `proxy.ts`, with the exported function renamed to match, and
+  the edge runtime is not supported there.
+- Synchronous `cookies()` is gone. Every request API is async, so the Supabase server
+  client factory has to be `async` and `await cookies()`.
+
+Both land exactly on the Supabase session wiring, which is the first thing this app
+needs. Reading first cost about eight minutes; finding them by debugging would have
+cost more.
+
 ## Hard parts / dead ends
 
-*(appended as they happen)*
+### 16:53 — `LayoutProps` is generated, not imported
+
+First typecheck failed with `Cannot find name 'LayoutProps'` in the generated layout.
+Next 16 generates route type helpers rather than exporting them, so `npx next typegen`
+has to run before `tsc --noEmit` passes on a fresh checkout. Worth knowing for CI and
+for anyone running the repo from scratch — it is in the README's setup steps.
 
 ## How I verified it works
 
@@ -77,4 +97,5 @@ data, because the three can fail independently.
 
 ## Time spent
 
-- 16:25 — started. Schema and RLS first, UI after.
+- 16:25–16:40 — problem framing, schema, RLS, view, RPC, seed and verification scripts.
+- 16:40–16:55 — Next.js 16 scaffold, Supabase client/server/proxy wiring, docs reading.
