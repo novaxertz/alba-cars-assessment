@@ -130,9 +130,17 @@ Small, but it is the kind of detail that makes a page look machine-generated.
 - **Severity ordering** — `1FTZR45E36PA12345` (2006 Ford Ranger) returns 12 campaigns of
   which 4 are `parkIt`; all four sort above the other eight and the verdict reads
   "4 'do not drive' recalls".
-- **Sweep with a partial failure** — four VINs, one deliberately invalid: the three good
+- **Sweep with a partial failure** — five VINs, one deliberately invalid: the four good
   ones resolved and the bad one failed *individually* rather than failing the whole
-  request.
+  request. Result line read "4 of 5 cars have open campaigns · 1 should not be driven".
+- **Deployed BFF** — the production URL returns the Ranger's 12 campaigns with 4
+  `parkIt`, so caching and fusion work outside the dev server too.
+- **Client JavaScript** — ~175 KB gzipped across all chunks, no chart or component
+  library. The page is statically prerendered; only the API route is dynamic.
+- **Lighthouse was not measured.** Chrome is not installed here and the anonymous
+  PageSpeed Insights quota was exhausted when I tried. Rather than quote a number I did
+  not take, the README links the PageSpeed run so it can be done in one click. Recorded
+  as a known limitation, not quietly omitted.
 
 ## Known limitations
 
@@ -147,6 +155,11 @@ Small, but it is the kind of detail that makes a page look machine-generated.
   and instances do not share entries.
 - **Backoff is untested against a real 429**, because NHTSA never sent me one. The retry
   path is exercised by timeouts and 5xx handling, not by an observed rate limit.
+- **No automated tests.** Every case was verified by hand and recorded above. The
+  upstream normalisation — the `ErrorCode` branches and the boolean/string coercion on
+  NHTSA's severity flags — is exactly the logic that rots silently, so a test suite
+  around it is the first thing I would add.
+- **Lighthouse unmeasured**, for the reasons above.
 
 ## Time spent
 
