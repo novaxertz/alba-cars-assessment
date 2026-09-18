@@ -9,7 +9,7 @@ checks the same cars for open safety recalls before they are listed.
 
 | | Project | Live | Repo | Video |
 |---|---|---|---|---|
-| 01 | **Recall Radar** — VIN decode + open safety recalls, on a Next.js BFF | _pending_ | [`/01-web-app`](./01-web-app) | _pending_ |
+| 01 | **Recall Radar** — VIN decode + open safety recalls, on a Next.js BFF | [alba-recall-radar.vercel.app](https://alba-recall-radar.vercel.app) | [`/01-web-app`](./01-web-app) | _pending_ |
 | 02 | **Lot** — inventory ageing & price decay | [alba-lot-dashboard.vercel.app](https://alba-lot-dashboard.vercel.app) | [`/02-dashboard`](./02-dashboard) | _pending_ |
 | 03 | **Markdown agent** — nightly ageing review | _pending_ | [`/03-n8n-workflow`](./03-n8n-workflow) | _pending_ |
 
@@ -41,6 +41,24 @@ its own profit in carrying cost.
 Supabase · auth + row-level security + analytics computed in Postgres ·
 [the boundary proof](./02-dashboard/docs/security-boundary.md) ·
 [build log](./02-dashboard/BUILD_LOG.md)
+
+---
+
+## 01 — Recall Radar · open safety recalls by VIN
+
+**The problem.** Before a used car is listed, somebody should check whether it carries an
+open safety recall. An unrepaired recall is a liability to sell and a lever when buying.
+
+**Try it with nothing configured** — no sign-up, no keys:
+[`1FTZR45E36PA12345`](https://alba-recall-radar.vercel.app/?vin=1FTZR45E36PA12345), a
+2006 Ford Ranger with four "do not drive" recalls.
+
+Next.js route handlers as a backend-for-frontend · two NHTSA APIs fused server-side ·
+per-resource cache TTLs, request coalescing, retry with backoff, and stale-but-labelled
+data when the upstream fails · [build log](./01-web-app/BUILD_LOG.md)
+
+**It is careful about what it does not know:** NHTSA answers by make/model/year, so this
+reports open campaigns for a model, never that a specific car is unrepaired.
 
 ---
 
