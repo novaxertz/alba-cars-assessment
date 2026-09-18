@@ -8,6 +8,7 @@ import { LookupSkeleton } from './Skeletons';
 import { SeverityIcon } from './icons';
 import { DefectTimeline } from './DefectTimeline';
 import { Findings } from './Findings';
+import { ComplaintReader } from './ComplaintReader';
 import type { Analysis } from '@/lib/analysis';
 import type { DecodedVin, Recall } from '@/lib/nhtsa';
 import type { Summary } from '@/lib/summarise';
@@ -50,6 +51,7 @@ export function Lookup() {
   const [failure, setFailure] = useState<Failure | null>(null);
   const [loading, setLoading] = useState(false);
   const [elapsed, setElapsed] = useState<number | null>(null);
+  const [reading, setReading] = useState<{ vin: string; component?: string } | null>(null);
   const [, startTransition] = useTransition();
   const lastRequested = useRef<string>('');
 
@@ -264,7 +266,20 @@ export function Lookup() {
             </section>
           )}
 
-          {data.analysis && <Findings analysis={data.analysis} />}
+          {data.analysis && (
+            <Findings
+              analysis={data.analysis}
+              onSelect={(component) => setReading({ vin: data.vehicle.vin, component })}
+            />
+          )}
+
+          {reading && (
+            <ComplaintReader
+              vin={reading.vin}
+              component={reading.component}
+              onClose={() => setReading(null)}
+            />
+          )}
 
           {data.complaintsCoverageGap && (
             <section className="panel lift p-4 sm:p-5" style={{ animationDelay: '90ms' }}>

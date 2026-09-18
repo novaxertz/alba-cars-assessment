@@ -147,6 +147,26 @@ consequence text and says so in the header and beside each notice.
 The upside outweighs the feature: a reviewer can clone this and run it with no keys and
 no signup.
 
+### Paging a large list from the server, not the browser
+
+The analysis answers "what breaks on this car". The obvious next question is "show me
+what people actually wrote", and for a 2016 Explorer that is 2,448 complaints — roughly
+2.4MB of JSON.
+
+Shipping that to the browser would have undercut the whole argument for having a
+backend, so the reader is paged server-side: 30 rows a request, sliced from the cache
+the analysis already populated. A page therefore costs **no upstream call at all** —
+measured at 6ms for page two against 1.4s for the first, and 21KB over the wire instead
+of 2.4MB.
+
+On the client, only the rows near the viewport are in the DOM (8–12 at a time for 528
+records), with spacers above and below so the scrollbar stays proportional, and the next
+page is fetched at two-thirds so it usually lands before the reader reaches it.
+
+Fixed row heights are the deliberate trade-off: summaries are clamped rather than
+reflowed, which keeps the windowing arithmetic instead of measurement. Variable heights
+would need a position cache — a lot of machinery for a reading list.
+
 ## Hard parts / dead ends
 
 ### I built a causal verdict, tested it, and deleted it
@@ -267,6 +287,8 @@ Small, but it is the kind of detail that makes a page look machine-generated.
   NHTSA's severity flags — is exactly the logic that rots silently, so a test suite
   around it is the first thing I would add.
 - **Lighthouse unmeasured**, for the reasons above.
+- **The complaint reader clamps summaries to four lines.** Fixed row heights are what
+  make the windowing cheap; a reader who wants the full text has to go to NHTSA.
 - **Component matching is fuzzy**, by necessity. See above.
 - **Complaint volume is not a defect rate.** NHTSA publishes no production figures, so
   271 complaints on a common truck cannot be normalised against a rare one. The app

@@ -51,6 +51,9 @@ Dubai dealer that is a genuine constraint, not a footnote.
   many involved a crash, fire or injury, each marked with the campaigns covering it or
   flagged **"no recall covers this"**.
 - **One-car lookup** — decoded specs plus every open recall campaign, most serious first.
+- **Read what owners actually wrote** — click any component and the complaints behind
+  that number open in a windowed, infinitely-scrolling reader, filterable to the ones
+  that involved a crash, fire or injury.
 - **Lot sweep** — paste the VIN column out of a stock list (up to 12) and see which cars
   are flagged. Each VIN resolves independently, so one typo does not fail the batch.
 - **Severity that comes from the data** — NHTSA publishes `parkIt` ("do not drive") and
@@ -140,6 +143,22 @@ production and would rather defend a deliberate choice than pad the stack.
   them yields "35% of complaints concern components with no campaign behind them",
   which is the actual product.
 - **Shareable, URL-synced state** — the VIN lives in the query string.
+- **High-performance lists** — the complaint reader. A 2016 Ford Explorer has **2,448
+  complaints**, about 2.4MB of JSON from NHTSA. The browser never sees it:
+
+  | | |
+  |---|---|
+  | Page size over the wire | **21KB** for 30 rows, not 2.4MB |
+  | Second page | **6ms** — sliced from the cache the analysis already filled, no upstream call |
+  | Filtered query (component + harm only) | **5ms** |
+  | Rows in the DOM | **8–12**, for 528 records in that component |
+  | Prefetch | next page requested at two-thirds, so it lands before you reach it |
+
+  Rows are a fixed height so the position of any row is arithmetic rather than
+  measurement, and spacers above and below keep the scrollbar proportional to the whole
+  set. The trade-off is stated in the component: summaries are clamped, not reflowed —
+  variable heights would need a measurement cache, which is a lot of machinery for a
+  reading list.
 
 ---
 

@@ -1,3 +1,5 @@
+'use client';
+
 import { SeverityIcon } from './icons';
 import type { Analysis } from '@/lib/analysis';
 
@@ -8,7 +10,7 @@ import type { Analysis } from '@/lib/analysis';
  * reporting that no manufacturer has ever acknowledged. They carry no remedy, no free
  * repair and no paper trail — so they are the ones a buyer pays a mechanic to look at.
  */
-export function Findings({ analysis }: { analysis: Analysis }) {
+export function Findings({ analysis, onSelect }: { analysis: Analysis; onSelect: (component: string) => void }) {
   const rows = analysis.findings.filter((f) => f.complaints > 1).slice(0, 8);
   if (rows.length === 0) return null;
 
@@ -26,7 +28,11 @@ export function Findings({ analysis }: { analysis: Analysis }) {
         {rows.map((f) => {
           const unacknowledged = f.verdict === 'unacknowledged';
           return (
-            <li key={f.component} className="p-4 sm:px-5">
+            <li key={f.component} className="p-0">
+              <button
+                onClick={() => onSelect(f.component)}
+                className="w-full p-4 text-left transition-colors hover:bg-[color:var(--surface-lift)] sm:px-5"
+              >
               <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                 <h3 className="text-[14px] font-medium">{f.component}</h3>
                 {unacknowledged ? (
@@ -57,7 +63,11 @@ export function Findings({ analysis }: { analysis: Analysis }) {
                 <span className="tnum">
                   {f.recentComplaints === 0 ? 'none in the last 3 years' : `${f.recentComplaints} in the last 3 years`}
                 </span>
+                <span className="text-ink-muted underline decoration-dotted underline-offset-4">
+                  read {f.complaints}
+                </span>
               </div>
+              </button>
             </li>
           );
         })}
