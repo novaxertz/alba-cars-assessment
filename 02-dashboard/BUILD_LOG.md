@@ -26,14 +26,14 @@ holding rate stands in), market-price benchmarking, multi-branch hierarchy.
 
 *(appended as the work happens — see timestamps)*
 
-### 16:27 — Money as integers
+### 16:26 — Money as integers
 
 Decision: every money column is `integer` AED, never `numeric` or `float`. Prices here
 are whole dirhams; float money is a bug waiting for a rounding edge. Alternative
 considered: `numeric(12,2)`, which is correct but buys precision this domain does not
 use and invites accidental float maths in the client.
 
-### 16:31 — Price history as an event log, written by a trigger
+### 16:28 — Price history as an event log, written by a trigger
 
 Decision: `price_changes` is append-only, and rows are written by a database trigger on
 `vehicles.list_price_aed` rather than by the client.
@@ -47,7 +47,7 @@ free when it applies a markdown, without duplicating that logic in a second plac
 Alternative considered: writing both from the client in a transaction. Honest and
 simpler to read, but it puts an invariant in the least reliable place.
 
-### 16:34 — `security_invoker` on the view, and why the RPC is not `SECURITY DEFINER`
+### 16:29 — `security_invoker` on the view, and why the RPC is not `SECURITY DEFINER`
 
 Decision: the `vehicle_ageing` view is declared `WITH (security_invoker = true)`, and
 `inventory_ageing_summary()` runs as the *caller*, not the definer.
@@ -63,7 +63,7 @@ This is also what makes the boundary worth *testing* rather than asserting: the
 verification below queries the table, the view and the RPC as user A against user B's
 data, because the three can fail independently.
 
-### 16:52 — Next.js 16, and reading the docs before writing code
+### 16:31 — Next.js 16, and reading the docs before writing code
 
 The scaffold ships an `AGENTS.md` that says, bluntly, that this is not the Next.js in
 my training data and to read `node_modules/next/dist/docs/` first. Two changes here
@@ -75,12 +75,12 @@ would have cost real debugging time:
   client factory has to be `async` and `await cookies()`.
 
 Both land exactly on the Supabase session wiring, which is the first thing this app
-needs. Reading first cost about eight minutes; finding them by debugging would have
+needs. Reading first cost a few minutes; finding them by debugging would have
 cost more.
 
 ## Hard parts / dead ends
 
-### 16:53 — `LayoutProps` is generated, not imported
+### 16:33 — `LayoutProps` is generated, not imported
 
 First typecheck failed with `Cannot find name 'LayoutProps'` in the generated layout.
 Next 16 generates route type helpers rather than exporting them, so `npx next typegen`
@@ -97,5 +97,6 @@ for anyone running the repo from scratch — it is in the README's setup steps.
 
 ## Time spent
 
-- 16:25–16:40 — problem framing, schema, RLS, view, RPC, seed and verification scripts.
-- 16:40–16:55 — Next.js 16 scaffold, Supabase client/server/proxy wiring, docs reading.
+- 16:25–16:30 — schema, RLS, ageing view, summary RPC, seed and verification scripts.
+- 16:30–16:34 — Next.js 16 scaffold, docs reading, Supabase client/server/proxy wiring.
+- Blocked from 16:34 waiting on a Supabase project; nothing below has been executed yet.
