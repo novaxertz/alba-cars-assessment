@@ -152,6 +152,16 @@ export async function decodeVin(vin: string): Promise<DecodedVin> {
     );
   }
 
+  // vPIC writes one fact three ways: "4WD/4-Wheel Drive/4x4". Keep only the abbreviation
+  // the trade actually uses. Nothing is lost - the other two segments are the same fact
+  // spelled out - and anything that is not a short abbreviation is passed through intact.
+  const driveType = (v: unknown): string | null => {
+    const raw = clean(v);
+    if (!raw) return null;
+    const first = raw.split('/')[0].trim();
+    return first.length > 0 && first.length <= 6 ? first : raw;
+  };
+
   // vPIC returns displacement at absurd precision — 2.998832712 for a 3.0L engine.
   // Nobody describes a car that way, so round it to one decimal.
   const litres = clean(r.DisplacementL);
@@ -170,7 +180,7 @@ export async function decodeVin(vin: string): Promise<DecodedVin> {
     modelYear,
     bodyClass: clean(r.BodyClass),
     fuelType: clean(r.FuelTypePrimary),
-    driveType: clean(r.DriveType),
+    driveType: driveType(r.DriveType),
     engine: engineParts.length ? engineParts.join(' · ') : null,
     doors: clean(r.Doors),
     plant: [clean(r.PlantCity), clean(r.PlantCountry)].filter(Boolean).join(', ') || null,

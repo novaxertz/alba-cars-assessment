@@ -267,7 +267,7 @@ export function Lookup({ seed }: { seed?: { vin: string; label: string } | null 
               {cacheBadge}
             </div>
 
-            <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
+            <dl className="mt-4 grid grid-cols-2 items-start gap-x-4 gap-y-3 sm:grid-cols-4">
               {([
                 ['VIN', data.vehicle.vin],
                 ['Body', data.vehicle.bodyClass],
@@ -280,9 +280,14 @@ export function Lookup({ seed }: { seed?: { vin: string; label: string } | null 
               ] as const)
                 .filter(([, v]) => v)
                 .map(([k, v]) => (
-                  <div key={k} className="min-w-0">
+                  // The VIN is 17 characters of monospace and the only value that cannot
+                  // wrap sensibly, so on phones it takes the whole row instead of half.
+                  <div key={k} className={`min-w-0 ${k === 'VIN' ? 'col-span-2 sm:col-span-1' : ''}`}>
                     <dt className="text-[11px] uppercase tracking-[0.12em] text-ink-muted">{k}</dt>
-                    <dd className={`mt-0.5 truncate text-[14px] ${k === 'VIN' ? 'tnum font-mono text-[13px]' : ''}`} title={v ?? ''}>
+                    {/* Wraps rather than truncates. These values are short facts, not prose:
+                        clipping "4WD/4-Wheel Drive/4x4" or "FORD MOTOR COMPANY" to fit a
+                        quarter column hides the answer to the question the row is asking. */}
+                    <dd className={`mt-0.5 text-[14px] break-words ${k === 'VIN' ? 'tnum font-mono text-[13px]' : ''}`} title={v ?? ''}>
                       {v}
                     </dd>
                   </div>

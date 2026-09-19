@@ -336,6 +336,23 @@ Small, but it is the kind of detail that makes a page look machine-generated.
   clears 4.5:1 against all four fills, so both labels moved above the bar, onto the card
   surface, where legibility does not depend on which bucket it is.
 
+### The spec grid was clipping the answers
+
+Reported by eye, not by a tool: Manufacturer, Drive and Built were being cut off. The
+cells were `truncate`, which is right for prose in a fixed row and wrong here — these are
+short facts, and half of "FORD MOTOR COMPANY" answers nothing. They wrap now.
+
+Two smaller things fell out of looking at it:
+
+- **vPIC writes one fact three ways.** `DriveType` comes back as
+  `"4WD/4-Wheel Drive/4x4"` — the same answer, abbreviated, spelled out, and in marketing
+  form. It reads as `4WD` now. Anything that is not a short abbreviation passes through
+  untouched, so a value that does not follow that pattern is not mangled.
+- **The VIN cannot wrap sensibly**, being 17 monospace characters with no break point, so
+  on phones it takes the whole row instead of half of one. Measured after deploying:
+  nothing in the grid is clipped at 375px or at desktop width, and the VIN is on one line
+  at both.
+
 ## Known limitations
 
 *(appended as they appeared)*
