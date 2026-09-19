@@ -276,6 +276,37 @@ to 45,000 while signed in as dealer A. A fourth history row appeared with reason
 figure came back from Postgres, not from arithmetic in the browser. This is also the
 test that found the trigger bug above — the seed could never have found it.
 
+### Labelling the charts, and what PageSpeed found
+
+Both charts had tick numbers and nothing that said what the numbers were. Fixed by
+titling both axes on each, labelling the 100% reference line on the decay chart, and
+direct-labelling the data: amount and vehicle count above each bar, and the current
+percentage at the end of each decay line. A tooltip answers a second question; a direct
+label answers the first one without being asked. The card subtitles now explain what the
+chart is for instead of restating its title.
+
+Then ran PageSpeed Insights on the deployed app, mobile profile. Performance 100 and best
+practices 100, but **accessibility 95 and SEO 91** — and both were real:
+
+- **Contrast.** `--ink-muted` (`#898781`) on the card surface is 3.5:1, where 12 px text
+  needs 4.5:1. Now `#706e68`: 4.97:1 on the card, 4.84:1 on the page. 01 is a dark theme
+  and needed the opposite change — the same token there was 4.38:1 on the lifted surface,
+  so it went lighter, to `#8e8c86`. Worth measuring per surface instead of assuming a
+  shared token is fine everywhere.
+- **The bar labels I had just added had the same fault.** White count text inside the bar
+  is 2.1:1 against the lightest step of the ageing ramp, and no single ink colour clears
+  4.5:1 against all four fills. Both labels moved above the bar, onto the card surface.
+- **`/robots.txt` was invalid.** The auth proxy matched it, so a crawler asking for a
+  plain-text file got a 307 to `/sign-in` and an HTML page. Both apps now serve a
+  disallow-all `robots.txt`, and 02 excludes the path from the proxy matcher. This is the
+  same shape of bug as the others in this log: the thing reported success (a 307 is a
+  perfectly good redirect) while doing the wrong thing for the caller who asked.
+
+Re-running PageSpeed to confirm the fixes returned `NO_FCP` twice in a row — a failure on
+their side, not the app's: the deployed page renders fine in a browser and serves 16 KB of
+HTML on request. Verified the fixes directly instead: `robots.txt` returns plain text over
+HTTPS, and the contrast ratios are computed above.
+
 ## Known limitations
 
 - The holding rate is a single configurable AED/day figure per dealer. Real floor-plan
@@ -301,6 +332,8 @@ test that found the trigger bug above — the seed could never have found it.
   plate. Metadata is handled; pixels are not.
 - **Dealer settings have no UI.** The daily holding rate is seeded and editable in the
   database only.
+- **PageSpeed was not re-run after the fixes.** Two consecutive `NO_FCP` failures on
+  their side; the underlying changes are verified directly rather than by a fresh score.
 - **Charts animate in on load.** Mid-animation the plot area looks empty, which reads as
   a broken chart for a moment. Shortening or removing the entry animation would fix it;
   left as is because the motion is worth more than the half-second.

@@ -287,10 +287,15 @@ Every case below was run against the live NHTSA APIs, not mocks.
 and no component library. The page itself is statically prerendered; only the API route
 is dynamic.
 
-**Lighthouse: not measured.** Chrome is not installed on this machine and the anonymous
-PageSpeed Insights quota was exhausted when I tried, so I am not going to quote a score
-I did not take. Run it yourself here:
+**Lighthouse (PageSpeed Insights, mobile, emulated Moto G Power on slow 4G):**
+performance **97**, accessibility **100**, best practices **100**, SEO **100**.
+FCP 1.4 s, LCP 2.0 s, TBT 0 ms, CLS 0, Speed Index 4.1 s. Re-run it here:
 [pagespeed.web.dev](https://pagespeed.web.dev/analysis?url=https://alba-second-opinion.vercel.app).
+
+The three points the report still docks are framework-level, not app code: a
+render-blocking stylesheet (~300 ms), Next's legacy-browser polyfill chunk (14 KB) and
+unused JavaScript in the framework bundle (53 KB). Chasing them means fighting the
+framework's own output, which is not where the remaining time belongs.
 
 **What I would add with more time:** an automated test suite around the upstream
 normalisation (the `ErrorCode` branches and the boolean/string coercion are exactly the
@@ -338,4 +343,5 @@ two datasets rather than an inference about cause.
 - **Plain-language summaries are off** without a model API key.
 - **No automated tests.** Verified by hand, case by case, as recorded above. This is the
   first thing I would fix.
-- **Lighthouse unmeasured**, for the reasons above.
+- **Lighthouse's remaining performance points are framework-level** (render-blocking
+  CSS, polyfill chunk, unused framework JavaScript) and were left alone deliberately.

@@ -318,6 +318,18 @@ rewrite a timestamp.
 
 ---
 
+## Measured
+
+PageSpeed Insights, mobile profile (emulated Moto G Power, slow 4G), on the deployed
+sign-in page: performance **100**, best practices **100**. FCP 0.8 s, LCP 1.4 s,
+TBT 10 ms, CLS 0.
+
+The same run found two real defects, both fixed: muted text at 3.5:1 where WCAG AA wants
+4.5:1 (accessibility scored 95), and a `/robots.txt` that the auth proxy was redirecting
+to `/sign-in`, so a crawler got HTML where plain text belongs (SEO scored 91). Details in
+[BUILD_LOG.md](./BUILD_LOG.md). Re-run it yourself:
+[pagespeed.web.dev](https://pagespeed.web.dev/analysis?url=https://alba-lot-dashboard.vercel.app/sign-in).
+
 ## Known limitations
 
 Also in [BUILD_LOG.md](./BUILD_LOG.md), kept here because they are worth seeing before

@@ -308,10 +308,26 @@ Small, but it is the kind of detail that makes a page look machine-generated.
   `parkIt`, so caching and fusion work outside the dev server too.
 - **Client JavaScript** — ~175 KB gzipped across all chunks, no chart or component
   library. The page is statically prerendered; only the API route is dynamic.
-- **Lighthouse was not measured.** Chrome is not installed here and the anonymous
-  PageSpeed Insights quota was exhausted when I tried. Rather than quote a number I did
-  not take, the README links the PageSpeed run so it can be done in one click. Recorded
-  as a known limitation, not quietly omitted.
+- **Lighthouse, finally measured.** Earlier in the build this was a known limitation:
+  no Chrome on this machine and the anonymous PageSpeed Insights API quota exhausted, so
+  the README linked a one-click run rather than quote a number I had not taken. Run from
+  the PageSpeed web UI instead of the API, mobile profile: **97 / 100 / 100 / 100**, with
+  FCP 1.4 s, LCP 2.0 s, TBT 0 ms, CLS 0.
+- **What the report docked, and what I did about it.** The accessibility and SEO checks
+  each turned up one real defect, both fixed (see below). Everything left on the
+  performance side is Next's own output — a render-blocking stylesheet, the legacy
+  polyfill chunk, unused framework JavaScript — so it stays, named, rather than being
+  chased.
+- **Contrast: the muted ink failed WCAG AA.** `#898781` on the light card surface in 02
+  is 3.5:1 where 12 px text needs 4.5:1. Darkened to `#706e68` (4.97:1 on the card,
+  4.84:1 on the page). 01 is a *dark* theme, so the same fix would have made it worse:
+  there the token was 5.3:1 on the canvas but 4.38:1 on the lifted surface, so it went
+  the other way, to `#8e8c86`. Same token name, opposite direction — worth checking
+  rather than assuming.
+- **The bar labels had the same problem in reverse.** Putting the vehicle count inside
+  the bar in white is 2.1:1 on the lightest step of the ageing ramp. No single ink colour
+  clears 4.5:1 against all four fills, so both labels moved above the bar, onto the card
+  surface, where legibility does not depend on which bucket it is.
 
 ## Known limitations
 
@@ -330,7 +346,8 @@ Small, but it is the kind of detail that makes a page look machine-generated.
   upstream normalisation — the `ErrorCode` branches and the boolean/string coercion on
   NHTSA's severity flags — is exactly the logic that rots silently, so a test suite
   around it is the first thing I would add.
-- **Lighthouse unmeasured**, for the reasons above.
+- **Lighthouse's remaining performance points are framework-level** and left alone on
+  purpose: render-blocking CSS, Next's polyfill chunk, unused framework JavaScript.
 - **The morph is skipped when the detail header lands in the same place as the row** —
   by design, since animating a two-pixel move is worse than not animating. It is also
   off entirely under `prefers-reduced-motion`.

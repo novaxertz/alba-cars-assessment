@@ -33,16 +33,20 @@ function TooltipCard({ title, rows }: { title: string; rows: [string, string][] 
  * unrelated hues: darker means older, which is magnitude, not identity. One series, so
  * no legend — the title names it.
  *
- * Both axes are titled and every bar carries its own figure, so the chart answers
+ * Both axes are titled and every bar carries its own figures, so the chart answers
  * "how much, and how many cars" without hovering. A tooltip is a second question;
  * a direct label is the answer already on screen.
+ *
+ * Both labels sit above the bar rather than inside it: white on the two lightest steps
+ * of the ramp is 2.1:1 and 3.0:1, and no single ink colour clears 4.5:1 against all four
+ * fills. Above the bar, on the card surface, every label is legible by construction.
  */
 export function AgeingChart({ data }: { data: SummaryRow[] }) {
   const rows = data.map((d) => ({ ...d, capital_aed: Number(d.capital_aed) }));
 
   return (
-    <ResponsiveContainer width="100%" height={252}>
-      <BarChart data={rows} margin={{ top: 20, right: 8, bottom: 22, left: 8 }}>
+    <ResponsiveContainer width="100%" height={264}>
+      <BarChart data={rows} margin={{ top: 34, right: 8, bottom: 22, left: 8 }}>
         <CartesianGrid vertical={false} stroke="#e1e0d9" strokeWidth={1} />
         <XAxis dataKey="ageing_bucket" tickLine={false} axisLine={{ stroke: '#c3c2b7' }} tick={AXIS}>
           <Label value="days on the lot" position="insideBottom" offset={-14} style={AXIS_TITLE} />
@@ -75,19 +79,21 @@ export function AgeingChart({ data }: { data: SummaryRow[] }) {
           ))}
           <LabelList
             dataKey="capital_aed"
-            position="top"
-            offset={8}
-            fill="#706e68"
-            fontSize={11}
-            formatter={(v) => aedCompact(Number(v)).replace(' AED', '')}
-          />
-          <LabelList
-            dataKey="vehicle_count"
-            position="insideTop"
-            offset={8}
-            fill="#fcfcfb"
-            fontSize={11}
-            formatter={(v) => (Number(v) === 1 ? '1 car' : `${v} cars`)}
+            content={(props) => {
+              const { index, x, y, width } = props as {
+                index?: number; x?: number | string; y?: number | string; width?: number | string;
+              };
+              const row = index == null ? undefined : rows[index];
+              if (!row || x == null || y == null) return null;
+              const cx = Number(x) + Number(width ?? 0) / 2;
+              const count = Number(row.vehicle_count);
+              return (
+                <text x={cx} y={Number(y) - 20} textAnchor="middle" fontSize={11}>
+                  <tspan fill="#52514e" fontWeight={500}>{aedCompact(Number(row.capital_aed)).replace(' AED', '')}</tspan>
+                  <tspan x={cx} dy={13} fill="#706e68">{count === 1 ? '1 car' : `${count} cars`}</tspan>
+                </text>
+              );
+            }}
           />
         </Bar>
       </BarChart>
