@@ -95,4 +95,21 @@ if (content.length > LIMIT) {
   content = `${kept}\n-# Truncated. ${scored.length} vehicles in full - see the dashboard.`;
 }
 
-return [{ json: { content, written: written.length, skipped: skipped.length } }];
+// The figures are passed on alongside the message so the brief-drafting node can read
+// them without recomputing anything. The model gets numbers that were calculated here,
+// not a blob of text to parse back into numbers.
+const oldest = scored[0] ?? null;
+
+return [{
+  json: {
+    content,
+    written: written.length,
+    skipped: skipped.length,
+    vehicleCount: scored.length + blocked.length,
+    blockedCount: blocked.length,
+    totalCut: n(totalCut),
+    oldestLabel: oldest ? oldest.label.replace(/^\d{4}\s+/, '') : 'none',
+    oldestDays: oldest ? oldest.days_on_lot : 0,
+    underwaterCount: scored.filter((s) => s.rationale.includes('no longer covers')).length,
+  },
+}];

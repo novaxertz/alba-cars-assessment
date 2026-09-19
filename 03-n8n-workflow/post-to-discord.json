@@ -1,0 +1,67 @@
+{
+  "name": "Post to Discord",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "workflowInputs",
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "content"
+            }
+          ]
+        }
+      },
+      "id": "subtrigger",
+      "name": "Called by another workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ],
+      "notes": "Takes one field, `content`, which is the Discord message. Every caller in the main workflow hands over the same shape."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://discord.com/api/webhooks/REPLACE-WITH-YOUR-WEBHOOK",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ content: $json.content }) }}",
+        "options": {}
+      },
+      "id": "subpost",
+      "name": "Post the message",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "notesInFlow": true,
+      "notes": "The ONLY place the Discord webhook URL appears. Before this existed the main workflow had three copies of this node - digest, failure alert and do-not-retail - which meant three places to update a rotated URL and three chances to miss one."
+    }
+  ],
+  "connections": {
+    "Called by another workflow": {
+      "main": [
+        [
+          {
+            "node": "Post the message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Dubai"
+  },
+  "pinData": {}
+}

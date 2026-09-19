@@ -127,6 +127,35 @@ unknown.
 *An automation that runs perfectly and quietly does the wrong thing is more dangerous
 than one that crashes.* The execution log is not evidence; the output store is.
 
+### Three duplicated nodes became one sub-workflow
+
+The workflow had three identical Discord post nodes — digest, failure alert,
+do-not-retail — each carrying its own copy of the webhook URL. Three places to update
+when it rotates, three chances to miss one.
+
+`Post to Discord` is now a sub-workflow taking a single `content` field, called from all
+three paths. The main workflow contains **no webhook URL at all**, which is a better
+outcome than the bonus point that prompted it.
+
+### An LLM call that succeeded and returned nothing
+
+The first run with Gemini attached produced a perfect digest with no brief on top, no
+error anywhere, and a green tick. The fallback did exactly what it was built to do, and
+that is precisely what made it hard to notice.
+
+Cause: `gemini-2.5-flash` is a **thinking model**, and its reasoning tokens come out of
+the same `maxOutputTokens` budget I had capped at 200. The budget was spent before the
+model wrote a visible word, so the call returned empty rather than failing. Raised to
+2000.
+
+I also had the model name wrong — `models/gemini-2.0-flash`, which the node flagged. The
+dropdown queries the account, so the live list is the source of truth, and it proved the
+credential worked before the workflow ever ran.
+
+The fallback now records **why** it fell back in the node output — model errored, empty,
+too short, too long — because "the brief just isn't there" is not something anyone can
+debug from a Discord message.
+
 ## How I verified it works
 
 - **First run:** 9 aged vehicles in, **8 recommendations written**, the Ranger correctly
@@ -146,8 +175,10 @@ than one that crashes.* The execution log is not evidence; the output store is.
 
 - **n8n Cloud trial.** The live instance expires; the exported JSON and this document
   are what survive. Setup is documented for a fresh import.
-- **No LLM node.** The rationale is generated deterministically in a Code node. With no
-  model credential available, a stubbed AI node would have been decoration.
+- **The LLM only writes framing.** Every figure is computed in code; the model never
+  sees or produces a price. The per-vehicle rationale stays deterministic.
+- **The brief is best-effort.** Failure, empty output or an implausible length all fall
+  back to the digest as-is, with the reason recorded in the node output.
 - **Recall data is model-level and US-market**, inherited from task 01. Most VINs on the
   demo lot are synthetic and do not decode, so their recall status reads as unknown.
 - **The workflow processes every dealer's inventory** in one run, since it uses the

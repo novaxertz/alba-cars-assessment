@@ -45,10 +45,13 @@ dealer sees their own under row-level security.
 | 8 | **Compose the do-not-retail alert** | Formats the blocked cars, with the recall counts and the caveat that NHTSA reports by model, not by VIN. |
 | 9 | **Post the do-not-retail alert** | Discord. |
 | 10 | **Record recommendation** | `POST /rest/v1/markdown_recommendations?on_conflict=vehicle_id,run_date` with `Prefer: resolution=ignore-duplicates`. Retries 3× with backoff; failures route to the handled branch. |
-| 11 | **Build the digest** | Counts what was written versus already recorded, groups by severity, and trims to Discord's 2,000-character limit at a line boundary. |
-| 12 | **Post the digest** | Discord. |
-| 13 | **Explain the failure** | The handled failure branch. Names the stage that broke, the error, and the next step. |
-| 14 | **Post the failure alert** | Discord. |
+| 11 | **Build the digest** | Counts what was written versus already recorded, groups by severity, and trims to Discord's 2,000-character limit at a line boundary. Passes the figures on as fields, not prose. |
+| 12 | **Gemini** | The model, attached to the node below. |
+| 13 | **Draft the manager brief** | One LLM call per run. Writes two sentences of framing from figures that were already computed — it never sees or produces a price. Allowed to fail. |
+| 14 | **Assemble the message** | Puts the brief on top of the computed digest, or ships the digest unchanged if the brief is missing or implausible, recording why. |
+| 15 | **Send the digest** | Calls the **Post to Discord** sub-workflow. |
+| 16 | **Explain the failure** | The handled failure branch. Names the stage that broke, the error, and the next step. |
+| 17 | **Send the failure alert** | Calls the same sub-workflow. |
 
 ### The requirements, and where each one lives
 
@@ -63,6 +66,8 @@ dealer sees their own under row-level security.
 | **Bonus — idempotency** | `UNIQUE (vehicle_id, run_date)` + `on_conflict`; a re-run writes nothing |
 | **Bonus — retry/backoff** | 3 attempts with waits on every network node |
 | **Bonus — merging 2+ sources** | Inventory (Supabase) + recalls (task 01) fused before scoring |
+| **Bonus — LLM node** | Gemini writes the manager's opening brief; every figure beneath it is computed in code |
+| **Bonus — reusable sub-workflow** | `Post to Discord`, called from all three delivery paths |
 
 ---
 
@@ -91,17 +96,48 @@ level security hides every row and PostgREST returns `200 []`, so the workflow r
 *No credentials are stored in the workflow JSON — only the credential **type**. That is
 why this file is safe to commit.*
 
-### 3. Discord
+### 3. Discord, and the sub-workflow
 
 Channel → **Edit Channel → Integrations → Webhooks → New Webhook → Copy URL**.
 
-### 4. Import and wire up
+Import [`post-to-discord.json`](./post-to-discord.json) as its own workflow, name it
+**Post to Discord**, and paste the webhook URL into its single HTTP node.
+
+**That node is the only place the webhook URL exists.** Before this sub-workflow, the
+main workflow carried three copies of it — the digest, the failure alert and the
+do-not-retail alert — which meant three places to update when it rotates and three
+chances to miss one. The main workflow now contains no webhook URL at all.
+
+### 4. Gemini (optional but wired)
+
+**Credentials → New → Google Gemini(PaLM) API**, paste a key from
+[aistudio.google.com/apikey](https://aistudio.google.com/apikey) — the free tier is
+enough for one call per night.
+
+Then open the **Gemini** node and check the model against the dropdown: it queries your
+account, so that list is the source of truth rather than whatever this file says.
+
+> `maxOutputTokens` is deliberately 2000, not a tight 200. The 2.5-series are *thinking*
+> models and their reasoning tokens come out of the same budget — a small cap can be
+> consumed entirely before the model writes a visible word, and the call then returns
+> empty **without erroring**. That is exactly how it failed the first time here: the
+> digest sent perfectly, with no brief and no error anywhere.
+
+### 5. Import and wire up
 
 1. New workflow → click the canvas → paste the contents of `nightly-markdown-review.json`
 2. Replace `YOUR-PROJECT-REF` in the two Supabase node URLs with your project ref
-3. Paste your Discord URL into the **three** post nodes
-4. Open **Fetch aged inventory** and **Record recommendation**, select the Supabase
-   credential in each, and **save**
+3. Select the Supabase credential on **Fetch aged inventory** and **Record recommendation**
+4. Select the Gemini credential on the **Gemini** node
+5. On each of the three **Send the…** nodes, pick the `Post to Discord` workflow and set
+   the `content` input to `{{ $json.content }}`
+6. **Save**
+
+> Two things an exported workflow does not carry, both of which *look* configured after
+> import: credentials, and the sub-workflow reference. n8n pre-fills the credential
+> dropdown with the only matching credential without binding it, and the call nodes show
+> the sub-workflow's cached *name* with no ID behind it. Select both explicitly and save,
+> or the first run fails with `Credentials not found`. This cost me several runs.
 
 > On import n8n pre-fills the credential dropdown with the only matching credential
 > *without binding it*. It looks attached and is not. Select it explicitly and save, or
@@ -225,8 +261,13 @@ Three things worth noticing in that output:
 
 - **n8n Cloud trial** — the live instance expires. This JSON and these notes are the
   durable artifact.
-- **No LLM node.** The rationale is deterministic. With no model credential available, a
-  stubbed AI node would have been decoration rather than a feature.
+- **The LLM writes framing, never figures.** Every price, day count and total in the
+  digest is computed in code. A language model paraphrasing prices is how you publish a
+  number nobody can trace, and the per-vehicle rationale stays deterministic for the
+  same reason.
+- **The brief is optional by design.** If the call fails, returns nothing, or returns an
+  essay where two sentences were asked for, the digest ships unchanged and the node
+  output records why. A model outage must not stop a pricing review.
 - **Recall data is model-level and US-market.** Most VINs on the demo lot are synthetic
   and do not decode, so their recall status reads as *unknown* — which is deliberately
   not the same as *clear*.

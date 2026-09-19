@@ -209,7 +209,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Builds the nightly digest and counts what the idempotency guard did.\n//\n// PostgREST with on_conflict + Prefer: resolution=ignore-duplicates returns the rows it\n// inserted and omits the ones that collided with the unique constraint - so \"written\"\n// versus \"already recorded\" falls straight out of the response.\n//\n// Formatting is Discord-native: headings, a monospace block per severity band so the\n// figures line up, and small subtext for the caveats. A pricing review is skimmed on a\n// phone, so the shape has to carry the meaning before the words do.\n//\n// Deliberately ASCII only. The first version used arrows, typographic minus signs and\n// emoji; they came back through the webhook mangled (-> became a mojibake run), and a\n// pricing digest does not need them. Consecutive '-#' subtext lines also collapse into\n// one paragraph in Discord, so the caveats are joined into a single line on purpose.\n\nconst everything = $('Score the markdown').all().map((i) => i.json);\n\n// Cars held back by a \"do not drive\" recall never reach the markdown table - they are\n// alerted on their own path - so they must not be counted as \"skipped\" here.\nconst blocked = everything.filter((s) => s.priority === 'blocked');\nconst scored = everything.filter((s) => s.priority !== 'blocked');\n\nconst written = $input\n  .all()\n  .flatMap((i) => (Array.isArray(i.json) ? i.json : [i.json]))\n  .filter((r) => r && r.id);\n\nconst writtenIds = new Set(written.map((r) => r.vehicle_id));\nconst skipped = scored.filter((s) => !writtenIds.has(s.vehicle_id));\n\nconst n = (v) => Number(v).toLocaleString('en-AE');\nconst date = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });\n\n// Fixed-width rows inside a code block: the columns align, which is what makes a list\n// of numbers skimmable rather than a wall of text.\nconst row = (s) => {\n  // The model year is dropped here: it is on the dashboard, and keeping it truncated\n  // \"Porsche 718 Caym\" mid-word, which looks broken. Without it the longest name on the\n  // lot (Land Rover Range Rover) fits exactly.\n  const name = s.label.replace(/^\\d{4}\\s+/, '');\n  return (\n    `${name.slice(0, 22).padEnd(22)} ${String(s.days_on_lot).padStart(3)}d  ` +\n    `${n(s.current_price_aed).padStart(7)} -> ${n(s.recommended_price_aed).padStart(7)}  ` +\n    `${('-' + n(s.cut_aed)).padStart(7)}`\n  );\n};\n\nconst band = (title, items) =>\n  items.length ? [`### ${title} (${items.length})`, '```', ...items.map(row), '```'] : [];\n\nconst urgent = scored.filter((s) => s.severity === 'urgent');\nconst act = scored.filter((s) => s.severity === 'act');\nconst watch = scored.filter((s) => s.severity === 'watch');\nconst totalCut = scored.reduce((sum, s) => sum + s.cut_aed, 0);\n\nconst parts = [`## Nightly markdown review`, `**${date}**`, ''];\n\nparts.push(\n  `**${scored.length + blocked.length}** vehicles past 30 days  |  ` +\n  `**${written.length}** new recommendation${written.length === 1 ? '' : 's'}  |  ` +\n  `**${skipped.length}** already recorded today`,\n);\n\nif (blocked.length) {\n  parts.push(\n    `> **${blocked.length}** vehicle${blocked.length === 1 ? '' : 's'} held back for open ` +\n    `\"do not drive\" recalls - posted separately.`,\n  );\n}\n\nparts.push('');\nparts.push(...band('Over 90 days - act now', urgent));\nparts.push(...band('60 to 89 days', act));\nparts.push(...band('Watch list - 30 to 59 days', watch));\n\nparts.push(`**Total proposed reduction: AED ${n(totalCut)}**`);\n// One subtext line, not two: consecutive '-#' lines run together into a single\n// paragraph in Discord, which reads as a typo.\nconst unknown = scored.filter((s) => !s.recall_known).length;\nconst caveats = ['Nothing has been applied - these are recommendations for a human to approve.'];\nif (unknown) {\n  caveats.push(`Recall status unavailable for ${unknown} vehicle${unknown === 1 ? '' : 's'}, treated as unknown rather than clear.`);\n}\nparts.push(`-# ${caveats.join('  |  ')}`);\n\nlet content = parts.join('\\n');\n\n// Discord rejects anything over 2000 characters with a 400, which would lose the whole\n// digest rather than the tail of it. Trim to the last complete line that fits, and close\n// any code block the trim may have cut open.\nconst LIMIT = 1900;\nif (content.length > LIMIT) {\n  let kept = content.slice(0, LIMIT).split('\\n').slice(0, -1).join('\\n');\n  if ((kept.match(/```/g) || []).length % 2 === 1) kept += '\\n```';\n  content = `${kept}\\n-# Truncated. ${scored.length} vehicles in full - see the dashboard.`;\n}\n\nreturn [{ json: { content, written: written.length, skipped: skipped.length } }];\n"
+        "jsCode": "// Builds the nightly digest and counts what the idempotency guard did.\n//\n// PostgREST with on_conflict + Prefer: resolution=ignore-duplicates returns the rows it\n// inserted and omits the ones that collided with the unique constraint - so \"written\"\n// versus \"already recorded\" falls straight out of the response.\n//\n// Formatting is Discord-native: headings, a monospace block per severity band so the\n// figures line up, and small subtext for the caveats. A pricing review is skimmed on a\n// phone, so the shape has to carry the meaning before the words do.\n//\n// Deliberately ASCII only. The first version used arrows, typographic minus signs and\n// emoji; they came back through the webhook mangled (-> became a mojibake run), and a\n// pricing digest does not need them. Consecutive '-#' subtext lines also collapse into\n// one paragraph in Discord, so the caveats are joined into a single line on purpose.\n\nconst everything = $('Score the markdown').all().map((i) => i.json);\n\n// Cars held back by a \"do not drive\" recall never reach the markdown table - they are\n// alerted on their own path - so they must not be counted as \"skipped\" here.\nconst blocked = everything.filter((s) => s.priority === 'blocked');\nconst scored = everything.filter((s) => s.priority !== 'blocked');\n\nconst written = $input\n  .all()\n  .flatMap((i) => (Array.isArray(i.json) ? i.json : [i.json]))\n  .filter((r) => r && r.id);\n\nconst writtenIds = new Set(written.map((r) => r.vehicle_id));\nconst skipped = scored.filter((s) => !writtenIds.has(s.vehicle_id));\n\nconst n = (v) => Number(v).toLocaleString('en-AE');\nconst date = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });\n\n// Fixed-width rows inside a code block: the columns align, which is what makes a list\n// of numbers skimmable rather than a wall of text.\nconst row = (s) => {\n  // The model year is dropped here: it is on the dashboard, and keeping it truncated\n  // \"Porsche 718 Caym\" mid-word, which looks broken. Without it the longest name on the\n  // lot (Land Rover Range Rover) fits exactly.\n  const name = s.label.replace(/^\\d{4}\\s+/, '');\n  return (\n    `${name.slice(0, 22).padEnd(22)} ${String(s.days_on_lot).padStart(3)}d  ` +\n    `${n(s.current_price_aed).padStart(7)} -> ${n(s.recommended_price_aed).padStart(7)}  ` +\n    `${('-' + n(s.cut_aed)).padStart(7)}`\n  );\n};\n\nconst band = (title, items) =>\n  items.length ? [`### ${title} (${items.length})`, '```', ...items.map(row), '```'] : [];\n\nconst urgent = scored.filter((s) => s.severity === 'urgent');\nconst act = scored.filter((s) => s.severity === 'act');\nconst watch = scored.filter((s) => s.severity === 'watch');\nconst totalCut = scored.reduce((sum, s) => sum + s.cut_aed, 0);\n\nconst parts = [`## Nightly markdown review`, `**${date}**`, ''];\n\nparts.push(\n  `**${scored.length + blocked.length}** vehicles past 30 days  |  ` +\n  `**${written.length}** new recommendation${written.length === 1 ? '' : 's'}  |  ` +\n  `**${skipped.length}** already recorded today`,\n);\n\nif (blocked.length) {\n  parts.push(\n    `> **${blocked.length}** vehicle${blocked.length === 1 ? '' : 's'} held back for open ` +\n    `\"do not drive\" recalls - posted separately.`,\n  );\n}\n\nparts.push('');\nparts.push(...band('Over 90 days - act now', urgent));\nparts.push(...band('60 to 89 days', act));\nparts.push(...band('Watch list - 30 to 59 days', watch));\n\nparts.push(`**Total proposed reduction: AED ${n(totalCut)}**`);\n// One subtext line, not two: consecutive '-#' lines run together into a single\n// paragraph in Discord, which reads as a typo.\nconst unknown = scored.filter((s) => !s.recall_known).length;\nconst caveats = ['Nothing has been applied - these are recommendations for a human to approve.'];\nif (unknown) {\n  caveats.push(`Recall status unavailable for ${unknown} vehicle${unknown === 1 ? '' : 's'}, treated as unknown rather than clear.`);\n}\nparts.push(`-# ${caveats.join('  |  ')}`);\n\nlet content = parts.join('\\n');\n\n// Discord rejects anything over 2000 characters with a 400, which would lose the whole\n// digest rather than the tail of it. Trim to the last complete line that fits, and close\n// any code block the trim may have cut open.\nconst LIMIT = 1900;\nif (content.length > LIMIT) {\n  let kept = content.slice(0, LIMIT).split('\\n').slice(0, -1).join('\\n');\n  if ((kept.match(/```/g) || []).length % 2 === 1) kept += '\\n```';\n  content = `${kept}\\n-# Truncated. ${scored.length} vehicles in full - see the dashboard.`;\n}\n\n// The figures are passed on alongside the message so the brief-drafting node can read\n// them without recomputing anything. The model gets numbers that were calculated here,\n// not a blob of text to parse back into numbers.\nconst oldest = scored[0] ?? null;\n\nreturn [{\n  json: {\n    content,\n    written: written.length,\n    skipped: skipped.length,\n    vehicleCount: scored.length + blocked.length,\n    blockedCount: blocked.length,\n    totalCut: n(totalCut),\n    oldestLabel: oldest ? oldest.label.replace(/^\\d{4}\\s+/, '') : 'none',\n    oldestDays: oldest ? oldest.days_on_lot : 0,\n    underwaterCount: scored.filter((s) => s.rationale.includes('no longer covers')).length,\n  },\n}];\n"
       },
       "id": "digest",
       "name": "Build the digest",
@@ -222,25 +222,33 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "https://discord.com/api/webhooks/REPLACE-WITH-YOUR-WEBHOOK",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ content: $json.content }) }}",
+        "workflowId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "",
+          "cachedResultName": "Post to Discord"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "content": "={{ $json.content }}"
+          },
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
         "options": {}
       },
       "id": "post",
-      "name": "Post the digest",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+      "name": "Send the digest",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
       "position": [
-        1480,
+        1780,
         120
       ],
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 3000,
-      "notes": "Discord channel webhook. Channel > Edit Channel > Integrations > Webhooks > New Webhook > Copy URL. The same URL goes in both post nodes - one is the nightly digest, the other only fires from the handled error branch. Discord reads 'content' and caps a message at 2000 characters, so the digest is truncated before sending rather than being silently rejected.",
+      "notes": "Calls the 'Post to Discord' sub-workflow. Before this, three nodes here each carried their own copy of the webhook URL - three places to update when it rotates and three chances to miss one. Now it exists in exactly one node, in one workflow. Pick the sub-workflow in the Workflow field after import.",
       "notesInFlow": true
     },
     {
@@ -258,22 +266,33 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "https://discord.com/api/webhooks/REPLACE-WITH-YOUR-WEBHOOK",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ content: $json.content }) }}",
+        "workflowId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "",
+          "cachedResultName": "Post to Discord"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "content": "={{ $json.content }}"
+          },
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
         "options": {}
       },
       "id": "alert",
-      "name": "Post the failure alert",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+      "name": "Send the failure alert",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
       "position": [
-        1480,
-        380
+        1540,
+        420
       ],
-      "notes": "Discord channel webhook. Channel > Edit Channel > Integrations > Webhooks > New Webhook > Copy URL. The same URL goes in both post nodes - one is the nightly digest, the other only fires from the handled error branch. Discord reads 'content' and caps a message at 2000 characters, so the digest is truncated before sending rather than being silently rejected.",
+      "notes": "Calls the 'Post to Discord' sub-workflow. Before this, three nodes here each carried their own copy of the webhook URL - three places to update when it rotates and three chances to miss one. Now it exists in exactly one node, in one workflow. Pick the sub-workflow in the Workflow field after import.",
       "notesInFlow": true
     },
     {
@@ -291,26 +310,86 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "https://discord.com/api/webhooks/REPLACE-WITH-YOUR-WEBHOOK",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ content: $json.content }) }}",
+        "workflowId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "",
+          "cachedResultName": "Post to Discord"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "content": "={{ $json.content }}"
+          },
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
         "options": {}
       },
       "id": "blockedpost",
-      "name": "Post the do-not-retail alert",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+      "name": "Send the do-not-retail alert",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
       "position": [
-        1240,
-        -60
+        1300,
+        -80
       ],
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 3000,
-      "notes": "Discord channel webhook. Channel > Edit Channel > Integrations > Webhooks > New Webhook > Copy URL. The same URL goes in both post nodes - one is the nightly digest, the other only fires from the handled error branch. Discord reads 'content' and caps a message at 2000 characters, so the digest is truncated before sending rather than being silently rejected.",
+      "notes": "Calls the 'Post to Discord' sub-workflow. Before this, three nodes here each carried their own copy of the webhook URL - three places to update when it rotates and three chances to miss one. Now it exists in exactly one node, in one workflow. Pick the sub-workflow in the Workflow field after import.",
       "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-flash",
+        "options": {
+          "temperature": 0.2,
+          "maxOutputTokens": 2000
+        }
+      },
+      "id": "geminimodel",
+      "name": "Gemini",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1300,
+        300
+      ],
+      "notes": "Select the Google Gemini credential here after import, and check the model name against the dropdown - it queries your account, so the list is the source of truth. maxOutputTokens is 2000 rather than a tight 200 because 2.5-series models are thinking models: reasoning tokens come out of the same budget, so a small cap can be consumed entirely before the model writes a visible word, and the call returns empty without erroring."
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are writing the opening two sentences of a used-car dealership's nightly pricing review, for the sales manager who reads it on their phone.\n\nTonight's figures:\n- vehicles past 30 days on the lot: {{ $json.vehicleCount }}\n- new recommendations recorded tonight: {{ $json.written }}\n- already recorded earlier today: {{ $json.skipped }}\n- held back for open \"do not drive\" recalls: {{ $json.blockedCount }}\n- total proposed reduction: AED {{ $json.totalCut }}\n- oldest unit: {{ $json.oldestLabel }} at {{ $json.oldestDays }} days\n- units already below cost plus carrying cost: {{ $json.underwaterCount }}\n\nRules: two sentences, no more. Plain English, no bullet points, no greeting, no sign-off. Say what tonight actually calls for. Use only the figures above and never invent any. Do not repeat the full list - it follows underneath your text."
+      },
+      "id": "brief",
+      "name": "Draft the manager brief",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        1300,
+        120
+      ],
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000,
+      "notesInFlow": true,
+      "notes": "One call per run, not one per vehicle. The model writes the human framing; every number underneath is computed in code. Allowed to fail - a model outage must not stop a pricing review, so the message falls back to the deterministic summary."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Put the drafted brief on top of the computed digest.\n//\n// The model only ever writes the opening framing. Every figure below it was calculated\n// in code, because a language model paraphrasing prices is a way to publish a number\n// nobody can trace. If the call failed or came back empty, the digest goes out exactly\n// as it would have without it - the brief is an improvement, not a dependency.\n\nconst digest = $('Build the digest').first().json;\n\nconst raw = $input.first().json ?? {};\nconst drafted = (raw.text ?? raw.output ?? raw.response ?? '').toString().trim();\n\n// Guard against a model that ignores the instruction and returns an essay - and record\n// WHY the brief was dropped, because \"the brief just isn't there\" is not something you\n// can debug from a Discord message. The reason stays in the node output; it never goes\n// into the message itself.\nlet reason = 'used';\nif (raw.error) reason = `model call failed: ${raw.error.message ?? raw.error}`;\nelse if (!drafted) reason = 'model returned no text (check maxOutputTokens - a thinking model spends that budget on reasoning before it writes anything)';\nelse if (drafted.length <= 20) reason = `too short (${drafted.length} chars)`;\nelse if (drafted.length >= 600) reason = `too long (${drafted.length} chars)`;\n\nconst usable = reason === 'used' ? drafted : null;\n\nconst lines = digest.content.split('\\n');\nconst content = usable\n  ? [...lines.slice(0, 2), '', usable, ...lines.slice(2)].join('\\n')\n  : digest.content;\n\nreturn [{ json: { content, briefUsed: Boolean(usable), briefReason: reason } }];\n"
+      },
+      "id": "assemble",
+      "name": "Assemble the message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        120
+      ]
     }
   ],
   "connections": {
@@ -414,7 +493,7 @@
       "main": [
         [
           {
-            "node": "Post the digest",
+            "node": "Draft the manager brief",
             "type": "main",
             "index": 0
           }
@@ -425,7 +504,7 @@
       "main": [
         [
           {
-            "node": "Post the failure alert",
+            "node": "Send the failure alert",
             "type": "main",
             "index": 0
           }
@@ -454,8 +533,41 @@
       "main": [
         [
           {
-            "node": "Post the do-not-retail alert",
+            "node": "Send the do-not-retail alert",
             "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Draft the manager brief": {
+      "main": [
+        [
+          {
+            "node": "Assemble the message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assemble the message": {
+      "main": [
+        [
+          {
+            "node": "Send the digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Draft the manager brief",
+            "type": "ai_languageModel",
             "index": 0
           }
         ]
