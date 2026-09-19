@@ -18,7 +18,8 @@ Paste a VIN and you get three things no single page gives you:
    list you hand to a mechanic before you bid.
 
 **Live:** https://alba-second-opinion.vercel.app ·
-**Build log:** [BUILD_LOG.md](./BUILD_LOG.md)
+**Build log:** [BUILD_LOG.md](./BUILD_LOG.md) ·
+**Walkthrough:** [2-minute video](https://www.loom.com/share/48fcdcebd4e740f6a165fda483541db8)
 
 No sign-up, no keys, nothing to configure — try `1FTZR45E36PA12345` (a 2006 Ford Ranger:
 four "do not drive" recalls, 271 owner complaints, 4 deaths) or use the example buttons.

@@ -26,9 +26,9 @@ stock is costing. **03** acts on that every night and writes its recommendations
 
 | | Project | Live | Source | Video |
 |---|---|---|---|---|
-| 01 | **Second Opinion** — what owners report vs what was recalled | [alba-second-opinion.vercel.app](https://alba-second-opinion.vercel.app) | [`/01-web-app`](./01-web-app) | _pending_ |
-| 02 | **Lot** — inventory ageing & price decay | [alba-lot-dashboard.vercel.app](https://alba-lot-dashboard.vercel.app) | [`/02-dashboard`](./02-dashboard) | _pending_ |
-| 03 | **Nightly markdown review** — n8n agent | [workflow JSON](./03-n8n-workflow/nightly-markdown-review.json) + [setup](./03-n8n-workflow/README.md) | [`/03-n8n-workflow`](./03-n8n-workflow) | _pending_ |
+| 01 | **Second Opinion** — what owners report vs what was recalled | [alba-second-opinion.vercel.app](https://alba-second-opinion.vercel.app) | [`/01-web-app`](./01-web-app) | [walkthrough](https://www.loom.com/share/48fcdcebd4e740f6a165fda483541db8) |
+| 02 | **Lot** — inventory ageing & price decay | [alba-lot-dashboard.vercel.app](https://alba-lot-dashboard.vercel.app) | [`/02-dashboard`](./02-dashboard) | [walkthrough](https://www.loom.com/share/f29e4bc0f621408fbf815dc8c2e7a899) |
+| 03 | **Nightly markdown review** — n8n agent | [workflow JSON](./03-n8n-workflow/nightly-markdown-review.json) + [setup](./03-n8n-workflow/README.md) | [`/03-n8n-workflow`](./03-n8n-workflow) | [walkthrough](https://www.loom.com/share/fbc2d80f8b8c495f81cf17ace3a38e51) |
 
 Each folder stands on its own: `README.md`, `BUILD_LOG.md`, `.env.example`, and
 instructions to run it from zero.

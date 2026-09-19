@@ -9,7 +9,8 @@ markdown recommendation.** You do not discount a car you should not be retailing
 **Workflow:** [`nightly-markdown-review.json`](./nightly-markdown-review.json) ·
 **Code nodes, readable outside the JSON:** [`scoring.js`](./scoring.js),
 [`digest.js`](./digest.js), [`blocked-alert.js`](./blocked-alert.js) ·
-**Build log:** [BUILD_LOG.md](./BUILD_LOG.md)
+**Build log:** [BUILD_LOG.md](./BUILD_LOG.md) ·
+**Walkthrough:** [2-minute video](https://www.loom.com/share/fbc2d80f8b8c495f81cf17ace3a38e51)
 
 ---
 
