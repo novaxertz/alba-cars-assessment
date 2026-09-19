@@ -46,13 +46,29 @@ export function Lookup({ seed }: { seed?: { vin: string; label: string } | null 
   const router = useRouter();
   const params = useSearchParams();
   const urlVin = params.get('vin') ?? '';
+  // The filters live in the URL so any view of this page can be sent to somebody:
+  //   /?vin=1FTZR45E36PA12345&component=SUSPENSION&harm=1
+  // is "the suspension complaints on this Ranger that involved a crash, fire or injury".
+  const urlComponent = params.get('component') ?? '';
+  const urlHarm = params.get('harm') === '1';
 
   const [vin, setVin] = useState(seed?.vin ?? urlVin);
   const [data, setData] = useState<Payload | null>(null);
   const [failure, setFailure] = useState<Failure | null>(null);
   const [loading, setLoading] = useState(false);
   const [elapsed, setElapsed] = useState<number | null>(null);
-  const [reading, setReading] = useState<{ vin: string; component?: string } | null>(null);
+
+  /** Rewrites the query string without adding history entries for every toggle. */
+  const syncUrl = useCallback(
+    (next: { vin: string; component?: string; harm?: boolean }) => {
+      const q = new URLSearchParams();
+      q.set('vin', next.vin);
+      if (next.component) q.set('component', next.component);
+      if (next.harm) q.set('harm', '1');
+      startTransition(() => router.replace(`/?${q}`, { scroll: false }));
+    },
+    [router],
+  );
   const [, startTransition] = useTransition();
   const lastRequested = useRef<string>('');
   const resultsPanel = useRef<HTMLDivElement | null>(null);
@@ -300,15 +316,17 @@ export function Lookup({ seed }: { seed?: { vin: string; label: string } | null 
           {data.analysis && (
             <Findings
               analysis={data.analysis}
-              onSelect={(component) => setReading({ vin: data.vehicle.vin, component })}
+              onSelect={(component) => syncUrl({ vin: data.vehicle.vin, component, harm: urlHarm })}
             />
           )}
 
-          {reading && (
+          {urlComponent && (
             <ComplaintReader
-              vin={reading.vin}
-              component={reading.component}
-              onClose={() => setReading(null)}
+              vin={data.vehicle.vin}
+              component={urlComponent}
+              harmOnly={urlHarm}
+              onHarmChange={(harm) => syncUrl({ vin: data.vehicle.vin, component: urlComponent, harm })}
+              onClose={() => syncUrl({ vin: data.vehicle.vin })}
             />
           )}
 

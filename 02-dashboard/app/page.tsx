@@ -4,6 +4,7 @@ import { getAgeing, getCoverPhotos, getCurrentUser, getDecaySeries, getLatestRec
 import { aed, bucketLabel } from '@/lib/format';
 import { AgeingChart, DecayChart } from '@/components/Charts';
 import { Recommendations } from '@/components/Recommendations';
+import { InventoryHeader } from '@/components/InventoryHeader';
 import { Header } from '@/components/Header';
 import { BucketPill, EmptyState, Money, PhotoPlaceholder, StatTile, StatusChip } from '@/components/ui';
 
@@ -61,16 +62,16 @@ export default async function DashboardPage() {
 
         <section className="mt-4" aria-label="Inventory">
           {rows.length === 0 ? (
-            <EmptyState
-              title="No vehicles yet"
-              body="Add the first car to the lot and its ageing, holding cost and price history start tracking from the acquisition date."
-            />
+            <div className="card rise overflow-hidden">
+              <InventoryHeader count={0} />
+              <EmptyState
+                title="No vehicles yet"
+                body="Add the first car to the lot and its ageing, holding cost and price history start tracking from the acquisition date."
+              />
+            </div>
           ) : (
             <div className="card rise overflow-hidden">
-              <div className="flex items-baseline justify-between border-b border-hairline px-5 py-3">
-                <h2 className="text-[15px] font-semibold">Inventory</h2>
-                <p className="text-[12px] text-ink-muted">{rows.length} vehicles · oldest first</p>
-              </div>
+              <InventoryHeader count={rows.length} />
 
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[720px] border-collapse text-[14px]">

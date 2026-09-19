@@ -171,6 +171,21 @@ A smaller lesson from the same hunt: my first check for the reverted value faile
 ordinary one. The product was fine; the test was wrong. Invisible characters twice in one
 afternoon.
 
+### Adding stock belonged to the inventory, not the site chrome
+
+The add-vehicle form opened inside the top bar, which pushed the page header to several
+hundred pixels tall and shoved the dashboard down the screen every time it was used.
+
+It now lives in the inventory panel's own header — adding a car is an inventory action,
+so opening it expands the section that is already about lists of cars. The fields are
+also laid out two-up on phones and four-up on desktop rather than one long column, so
+the form is never the tallest thing on the page.
+
+Worth noting as a small judgement call: **no search bar was added.** Eleven vehicles fit
+on one screen, and a control that exists because a checklist implied it — filtering a
+list nobody needs to filter — costs more in polish than it earns. It is recorded as a
+limitation with the threshold at which it stops being decoration.
+
 ## Hard parts / dead ends
 
 ### Row-level security locked out my own trigger

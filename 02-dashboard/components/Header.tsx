@@ -1,5 +1,4 @@
 import { signOut } from '@/app/actions';
-import { AddVehicleForm } from './Forms';
 import { Realtime } from './Realtime';
 
 export function Header({ email }: { email: string }) {
@@ -12,7 +11,6 @@ export function Header({ email }: { email: string }) {
         </div>
         <Realtime />
         <span className="hidden text-[13px] text-ink-secondary sm:inline">{email}</span>
-        <AddVehicleForm />
         <form action={signOut}>
           <button className="rounded-lg px-2 py-2 text-[13px] whitespace-nowrap text-ink-secondary transition-colors hover:text-ink sm:px-3 sm:text-[14px]">
             Sign out

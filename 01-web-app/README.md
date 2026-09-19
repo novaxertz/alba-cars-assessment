@@ -53,7 +53,8 @@ Dubai dealer that is a genuine constraint, not a footnote.
 - **One-car lookup** — decoded specs plus every open recall campaign, most serious first.
 - **Read what owners actually wrote** — click any component and the complaints behind
   that number open in a windowed, infinitely-scrolling reader, filterable to the ones
-  that involved a crash, fire or injury.
+  that involved a crash, fire or injury. The filter is in the URL, so the filtered view
+  is a link.
 - **Lot sweep** — paste the VIN column out of a stock list (up to 12) and see which cars
   are flagged. Each VIN resolves independently, so one typo does not fail the batch.
 - **Severity that comes from the data** — NHTSA publishes `parkIt` ("do not drive") and
@@ -142,7 +143,13 @@ production and would rather defend a deliberate choice than pad the stack.
   admitted; the complaints API knows what owners experienced. Only cross-referencing
   them yields "35% of complaints concern components with no campaign behind them",
   which is the actual product.
-- **Shareable, URL-synced state** — the VIN lives in the query string.
+- **Shareable, URL-synced state** — the VIN *and the complaint filters* live in the
+  query string, so any view of this app is a link:
+  [`?vin=1FTZR45E36PA12345&component=SUSPENSION&harm=1`](https://alba-second-opinion.vercel.app/?vin=1FTZR45E36PA12345&component=SUSPENSION&harm=1)
+  opens directly on the suspension complaints for that Ranger that involved a crash, fire
+  or injury — one record out of nineteen. Filters that only exist in React state cannot
+  be sent to a colleague, which for a finding somebody needs to act on is the whole
+  point.
 - **A signature animation** — opening a car from the lot sweep makes the result unfold
   from the row you clicked, while the list fades out underneath it. It is FLIP: the
   row's rect is measured at click time, the difference against the panel's final rect is

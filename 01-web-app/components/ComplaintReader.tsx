@@ -38,10 +38,24 @@ const ROW_H = 132;
 const OVERSCAN = 4;
 const VIEWPORT_H = 520;
 
-export function ComplaintReader({ vin, component, onClose }: { vin: string; component?: string; onClose: () => void }) {
+export function ComplaintReader({
+  vin,
+  component,
+  harmOnly,
+  onHarmChange,
+  onClose,
+}: {
+  vin: string;
+  component?: string;
+  /** Owned by the URL, not by this component — see Lookup. A filtered reading of a
+   *  car's complaints is a thing worth sending to a colleague, and it cannot be if the
+   *  filter only exists in React state. */
+  harmOnly: boolean;
+  onHarmChange: (next: boolean) => void;
+  onClose: () => void;
+}) {
   const [rows, setRows] = useState<Row[]>([]);
   const [total, setTotal] = useState(0);
-  const [harmOnly, setHarmOnly] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [scrollTop, setScrollTop] = useState(0);
@@ -115,7 +129,7 @@ export function ComplaintReader({ vin, component, onClose }: { vin: string; comp
         </div>
 
         <button
-          onClick={() => setHarmOnly((v) => !v)}
+          onClick={() => onHarmChange(!harmOnly)}
           aria-pressed={harmOnly}
           className="rounded-full border px-3 py-1 text-[12px] transition-colors"
           style={{

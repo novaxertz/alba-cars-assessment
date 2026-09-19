@@ -347,6 +347,10 @@ you judge the app.
   having a second implementation of the ageing maths in JavaScript.
 - **Dealer settings have no UI yet.** The daily holding rate is seeded and editable in
   the database, not in the app.
+- **No inventory search or filter.** At eleven vehicles a search box would be decoration
+  on a list that fits on one screen; at two hundred it is the first thing I would add.
+  The complaint reader in `../01-web-app` does have filtering, because there the data is
+  2,448 rows — the same feature is justified in one place and not the other.
 - **Seeded VINs are synthetic**, but most of them do decode: the recall checker in
   `../01-web-app` resolves the BMW to a 2016 328i and the Toyota to a 2009 Prius, each
   flagged with a check-digit warning because the ninth character does not calculate.
