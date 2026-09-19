@@ -1,13 +1,14 @@
 'use client';
 
 import {
-  Bar, BarChart, CartesianGrid, Cell, Line, LineChart, ReferenceLine,
+  Bar, BarChart, CartesianGrid, Cell, Label, LabelList, Line, LineChart, ReferenceLine,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
 import { aed, aedCompact, bucketColor, bucketLabel, SERIES, type Bucket } from '@/lib/format';
 import type { SummaryRow } from '@/lib/types';
 
 const AXIS = { stroke: '#c3c2b7', fontSize: 12, fill: '#898781' };
+const AXIS_TITLE = { fill: '#898781', fontSize: 11 };
 
 function TooltipCard({ title, rows }: { title: string; rows: [string, string][] }) {
   return (
@@ -31,16 +32,27 @@ function TooltipCard({ title, rows }: { title: string; rows: [string, string][] 
  * Buckets are ordered, so the colour is an ordinal ramp of one hue rather than four
  * unrelated hues: darker means older, which is magnitude, not identity. One series, so
  * no legend — the title names it.
+ *
+ * Both axes are titled and every bar carries its own figure, so the chart answers
+ * "how much, and how many cars" without hovering. A tooltip is a second question;
+ * a direct label is the answer already on screen.
  */
 export function AgeingChart({ data }: { data: SummaryRow[] }) {
   const rows = data.map((d) => ({ ...d, capital_aed: Number(d.capital_aed) }));
 
   return (
-    <ResponsiveContainer width="100%" height={240}>
-      <BarChart data={rows} margin={{ top: 16, right: 8, bottom: 4, left: 8 }}>
+    <ResponsiveContainer width="100%" height={252}>
+      <BarChart data={rows} margin={{ top: 20, right: 8, bottom: 22, left: 8 }}>
         <CartesianGrid vertical={false} stroke="#e1e0d9" strokeWidth={1} />
-        <XAxis dataKey="ageing_bucket" tickLine={false} axisLine={{ stroke: '#c3c2b7' }} tick={AXIS} />
-        <YAxis tickFormatter={(v) => aedCompact(v).replace(' AED', '')} tickLine={false} axisLine={false} tick={AXIS} width={52} />
+        <XAxis dataKey="ageing_bucket" tickLine={false} axisLine={{ stroke: '#c3c2b7' }} tick={AXIS}>
+          <Label value="days on the lot" position="insideBottom" offset={-14} style={AXIS_TITLE} />
+        </XAxis>
+        <YAxis
+          tickFormatter={(v) => aedCompact(v).replace(' AED', '')}
+          tickLine={false} axisLine={false} tick={AXIS} width={64}
+        >
+          <Label value="capital tied up (AED)" angle={-90} position="insideLeft" style={{ ...AXIS_TITLE, textAnchor: 'middle' }} />
+        </YAxis>
         <Tooltip
           cursor={{ fill: 'rgba(11,11,11,0.035)' }}
           content={({ active, payload }) =>
@@ -61,6 +73,22 @@ export function AgeingChart({ data }: { data: SummaryRow[] }) {
           {rows.map((r) => (
             <Cell key={r.ageing_bucket} fill={bucketColor[r.ageing_bucket]} />
           ))}
+          <LabelList
+            dataKey="capital_aed"
+            position="top"
+            offset={8}
+            fill="#898781"
+            fontSize={11}
+            formatter={(v) => aedCompact(Number(v)).replace(' AED', '')}
+          />
+          <LabelList
+            dataKey="vehicle_count"
+            position="insideTop"
+            offset={8}
+            fill="#fcfcfb"
+            fontSize={11}
+            formatter={(v) => (Number(v) === 1 ? '1 car' : `${v} cars`)}
+          />
         </Bar>
       </BarChart>
     </ResponsiveContainer>
@@ -79,7 +107,8 @@ type Series = { id: string; label: string; cost: number; points: { day: number; 
  * has given up the largest share of its asking price, and how fast?
  *
  * Legend plus a shared-axis table below carry identity, since three of the categorical
- * slots sit under 3:1 against this surface.
+ * slots sit under 3:1 against this surface. Each line also ends in its own percentage,
+ * which is the number the legend cannot give you.
  */
 export function DecayChart({ series }: { series: Series[] }) {
   const indexed = series.map((s) => {
@@ -109,20 +138,30 @@ export function DecayChart({ series }: { series: Series[] }) {
         ))}
       </ul>
 
-      <ResponsiveContainer width="100%" height={212}>
-        <LineChart margin={{ top: 8, right: 16, bottom: 4, left: 8 }}>
+      <ResponsiveContainer width="100%" height={224}>
+        <LineChart margin={{ top: 10, right: 34, bottom: 22, left: 8 }}>
           <CartesianGrid vertical={false} stroke="#e1e0d9" />
           <XAxis
             type="number" dataKey="day" domain={[0, maxDay]}
             tickLine={false} axisLine={{ stroke: '#c3c2b7' }} tick={AXIS}
-            label={{ value: 'days on lot', position: 'insideBottomRight', offset: -2, fill: '#898781', fontSize: 11 }}
-          />
+          >
+            <Label value="days on the lot" position="insideBottom" offset={-14} style={AXIS_TITLE} />
+          </XAxis>
           <YAxis
             type="number" dataKey="pct" domain={[Math.floor(minPct - 3), 101]}
             tickFormatter={(v) => `${v}%`}
-            tickLine={false} axisLine={false} tick={AXIS} width={44}
-          />
-          <ReferenceLine y={100} stroke="#c3c2b7" strokeDasharray="3 3" />
+            tickLine={false} axisLine={false} tick={AXIS} width={60}
+          >
+            <Label
+              value="share of first asking price"
+              angle={-90}
+              position="insideLeft"
+              style={{ ...AXIS_TITLE, textAnchor: 'middle' }}
+            />
+          </YAxis>
+          <ReferenceLine y={100} stroke="#c3c2b7" strokeDasharray="3 3">
+            <Label value="first listed price" position="insideTopLeft" offset={6} style={AXIS_TITLE} />
+          </ReferenceLine>
           <Tooltip
             cursor={{ stroke: '#c3c2b7', strokeDasharray: '3 3' }}
             content={({ active, payload }) =>
@@ -151,16 +190,37 @@ export function DecayChart({ series }: { series: Series[] }) {
               activeDot={{ r: 6, stroke: '#fcfcfb', strokeWidth: 2 }}
               isAnimationActive
               animationDuration={520}
-            />
+            >
+              <LabelList
+                dataKey="pct"
+                content={(props) => {
+                  const { index, x, y, value } = props as {
+                    index?: number; x?: number | string; y?: number | string; value?: unknown;
+                  };
+                  if (index !== s.points.length - 1 || x == null || y == null) return null;
+                  return (
+                    <text
+                      x={Number(x) + 7}
+                      y={Number(y) + 4}
+                      fill={SERIES[i % SERIES.length]}
+                      fontSize={11}
+                      fontWeight={500}
+                    >
+                      {Math.round(Number(value))}%
+                    </text>
+                  );
+                }}
+              />
+            </Line>
           ))}
         </LineChart>
       </ResponsiveContainer>
 
       <p className="mt-1 text-[11px] text-ink-muted">
-        100% is each car&rsquo;s first asking price. Indexed because absolute prices across a
-        219,000 AED coupé and a 47,500 AED saloon make every line look flat. Drawn as steps:
-        a price holds until someone changes it, so a sloping line would invent a decline
-        that never happened.
+        100% is each car&rsquo;s first asking price, and the figure at the end of each line is
+        where it stands today. Indexed because absolute prices across a 219,000 AED coupé and
+        a 47,500 AED saloon make every line look flat. Drawn as steps: a price holds until
+        someone changes it, so a sloping line would invent a decline that never happened.
       </p>
     </div>
   );

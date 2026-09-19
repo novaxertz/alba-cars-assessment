@@ -41,7 +41,11 @@ export default async function DashboardPage() {
         <section className="mt-4 grid gap-3 lg:grid-cols-2">
           <div className="card rise p-5">
             <h2 className="text-[15px] font-semibold">Where the money is stuck</h2>
-            <p className="mb-2 text-[12px] text-ink-muted">Acquisition cost of unsold stock, by time on the lot</p>
+            <p className="mb-3 text-[12px] leading-relaxed text-ink-muted">
+              Every unsold car is cash the dealership has already spent. Each bar groups them by
+              how long they have sat, and its height is the money in that group &mdash; so a tall
+              bar on the right is capital that has stopped moving.
+            </p>
             {summary.length ? <AgeingChart data={summary} /> : (
               <p className="py-16 text-center text-[13px] text-ink-muted">No unsold inventory to chart.</p>
             )}
@@ -49,7 +53,11 @@ export default async function DashboardPage() {
 
           <div className="card rise p-5">
             <h2 className="text-[15px] font-semibold">Price decay</h2>
-            <p className="mb-2 text-[12px] text-ink-muted">Asking price against days on the lot, for units already marked down</p>
+            <p className="mb-3 text-[12px] leading-relaxed text-ink-muted">
+              What each already-discounted car has given up since it was listed. One line per car,
+              starting at 100% of its first asking price and stepping down on the day someone cut
+              it &mdash; the steeper the fall, the harder that car is proving to sell.
+            </p>
             {decay.length ? <DecayChart series={decay} /> : (
               <p className="py-16 text-center text-[13px] text-ink-muted">Nothing has been marked down yet.</p>
             )}
