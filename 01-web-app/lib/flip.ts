@@ -13,10 +13,14 @@
  *   only the `<h2>`, which moved about 30px while everything around it simply appeared.
  *   Technically a shared-element transition; in practice invisible. The eye follows the
  *   large moving object, so that has to be the thing that moves.
- * - **Uniform scale, not an exact rect match.** Matching the row's aspect ratio exactly
- *   means scaling a 66px-tall row into a 400px panel, which squashes every glyph inside
- *   it on the way. Scaling uniformly from 0.92 keeps the type undistorted and still
- *   reads as the row expanding.
+ * - **It unfolds, it does not slide.** A translate-and-fade is the most generic motion
+ *   on the web and reads as "the page changed", not "that row became this". The panel
+ *   instead grows vertically out of the row's band, anchored at the top edge.
+ * - **The content is counter-scaled.** Scaling a container squashes every glyph inside
+ *   it, which looks broken. The inner wrapper runs the inverse scale on the same curve,
+ *   so the box expands while the type inside stays the right shape the whole way. That
+ *   correction is the part worth knowing about - it is what separates this from a CSS
+ *   height transition.
  */
 
 type Origin = { key: string; rect: DOMRect };
@@ -67,7 +71,11 @@ export function playExit(el: HTMLElement | null) {
  * behaviour is testable rather than a matter of opinion: `el.getAnimations()` will hold
  * the keyframes.
  */
-export function playFrom(key: string, el: HTMLElement | null): boolean {
+export function playFrom(
+  key: string,
+  el: HTMLElement | null,
+  inner?: HTMLElement | null,
+): boolean {
   if (!el || !pending || pending.key !== key || reduced()) return false;
 
   const last = el.getBoundingClientRect();
@@ -102,19 +110,33 @@ export function playFrom(key: string, el: HTMLElement | null): boolean {
 
   pending = null;
 
+  // How thin the panel starts. The true ratio of a 66px row to a 3,000px panel is about
+  // 0.02, which is a hairline and reads as a glitch rather than an unfold, so it is
+  // clamped to something legible.
+  const k = Math.max(0.28, Math.min(0.85, first.height / last.height));
+
+  const duration = 620 * speed();
+  const easing = 'cubic-bezier(0.16, 1, 0.3, 1)';
+
   el.animate(
     [
-      { transform: `translate3d(${dx}px, ${dy}px, 0) scale(0.92)`, opacity: 0 },
-      { transform: `translate3d(${dx * 0.12}px, ${dy * 0.12}px, 0) scale(0.985)`, opacity: 1, offset: 0.55 },
-      { transform: 'translate3d(0, 0, 0) scale(1)', opacity: 1 },
+      { transform: `translate3d(${dx}px, ${dy}px, 0) scaleY(${k})`, opacity: 0.15 },
+      { transform: `translate3d(${dx * 0.1}px, ${dy * 0.1}px, 0) scaleY(${1 + (1 - k) * 0.03})`, opacity: 1, offset: 0.62 },
+      { transform: 'translate3d(0, 0, 0) scaleY(1)', opacity: 1 },
     ],
-    {
-      duration: 560 * speed(),
-      // Expo-out: most of the distance is covered early, then it settles. Reads as
-      // deliberate rather than linear.
-      easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
-      fill: 'both',
-    },
+    { duration, easing, fill: 'both' },
+  );
+
+  // The inverse, on the same curve and duration, so the two cancel frame for frame.
+  // Without this the whole panel's text is squashed flat at the start and stretches
+  // back out, which looks like a rendering fault rather than a transition.
+  inner?.animate(
+    [
+      { transform: `scaleY(${1 / k})` },
+      { transform: `scaleY(${1 / (1 + (1 - k) * 0.03)})`, offset: 0.62 },
+      { transform: 'scaleY(1)' },
+    ],
+    { duration, easing, fill: 'both' },
   );
 
   return true;

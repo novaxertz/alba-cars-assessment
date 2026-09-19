@@ -56,6 +56,7 @@ export function Lookup({ seed }: { seed?: { vin: string; label: string } | null 
   const [, startTransition] = useTransition();
   const lastRequested = useRef<string>('');
   const resultsPanel = useRef<HTMLDivElement | null>(null);
+  const resultsInner = useRef<HTMLDivElement | null>(null);
 
   const run = useCallback(async (raw: string, { pushUrl = true } = {}) => {
     const candidate = raw.trim().toUpperCase();
@@ -226,12 +227,14 @@ export function Lookup({ seed }: { seed?: { vin: string; label: string } | null 
         <div
           ref={(el) => {
             resultsPanel.current = el;
-            // The whole result travels, not just the heading - the eye follows the
-            // large moving object, and a 30px text nudge is not a transition.
-            if (el) playFrom(data.vehicle.vin, el);
+            // The outer box unfolds from the row's band; the inner wrapper runs the
+            // inverse scale so the content inside is never squashed. Both are started
+            // together so they cancel frame for frame - see lib/flip.ts.
+            if (el) playFrom(data.vehicle.vin, el, resultsInner.current);
           }}
-          className="space-y-4"
+          style={{ transformOrigin: 'top center' }}
         >
+          <div ref={resultsInner} style={{ transformOrigin: 'top center' }} className="space-y-4 cascade">
           <Verdict recalls={data.recalls} />
 
           <section className="panel lift p-4 sm:p-5" style={{ animationDelay: '60ms' }}>
@@ -364,6 +367,7 @@ export function Lookup({ seed }: { seed?: { vin: string; label: string } | null 
               ))}
             </section>
           )}
+          </div>
         </div>
       )}
 
