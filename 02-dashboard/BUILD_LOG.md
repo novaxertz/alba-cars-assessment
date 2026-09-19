@@ -382,9 +382,14 @@ the whole argument of this script is that a check you would ignore is not eviden
 
 ## Time spent
 
-Rough effort by phase, filled in at the end:
+**About 3.5 hours**, inside the 2–4 hour time-box, worked in scattered sessions rather
+than one sitting. Across:
 
-- Schema, RLS, ageing view and summary RPC, seed and verification scripts — 
-- Next.js scaffold and Supabase session wiring — 
-- Dashboard UI and charts — 
-- Verification and docs — 
+- Schema, RLS, ageing view and summary RPC, seed and verification scripts
+- Next.js scaffold and Supabase session wiring
+- Dashboard UI and charts
+- Verification and docs
+
+I did not time those phases separately, so there is a total here and no invented split.
+This was the longest of the three, and the schema and boundary work is where it went —
+the RLS verification script and chasing the realtime socket cost more than the UI did.

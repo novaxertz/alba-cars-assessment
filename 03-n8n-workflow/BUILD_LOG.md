@@ -208,9 +208,14 @@ Two lessons kept from this, both cheap and both mine:
 
 ## Time spent
 
-Rough effort by phase, filled in at the end:
+**About 2.3 hours**, inside the 2–4 hour time-box, worked in scattered sessions rather
+than one sitting. Across:
 
-- Schema for the recommendations table and testing the constraint —
-- Authoring the workflow and the scoring logic —
-- Import, credentials, and the three debugging rounds —
-- Verification and docs —
+- Schema for the recommendations table and testing the constraint
+- Authoring the workflow and the scoring logic
+- Import, credentials, and the debugging rounds
+- Verification and docs
+
+I did not time those phases separately, so there is a total here and no invented split.
+Worth saying that authoring the workflow was not the expensive part — the debugging was,
+and n8n being new to me is most of why.

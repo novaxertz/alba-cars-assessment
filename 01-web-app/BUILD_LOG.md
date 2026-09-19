@@ -390,9 +390,14 @@ Two smaller things fell out of looking at it:
 
 ## Time spent
 
-Rough effort by phase, filled in at the end:
+**About 2 hours**, inside the 2–4 hour time-box, worked in scattered sessions rather than
+one sitting. Across:
 
-- Measuring the upstream APIs and their quirks — 
-- Cache, upstream layer and BFF route — 
-- UI, states and motion — 
-- Verification, docs and deploy — 
+- Measuring the upstream APIs and their quirks
+- Cache, upstream layer and BFF route
+- UI, states and motion
+- Verification, docs and deploy
+
+I did not time those phases separately, so there is a total here and no invented split.
+The honest shape of it: the upstream measuring and the animation took the most, and the
+animation took it twice — see [Hard parts](#hard-parts--dead-ends).
