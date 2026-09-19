@@ -118,6 +118,29 @@ Fixed in two layers, deliberately:
 Worth recording that **it only failed on a real device.** Every test until then used
 small generated images, which sailed under a limit I did not know existed.
 
+### Realtime, and a green light over a dead socket
+
+I had argued against realtime in this log: a pricing review is something you sit down and
+do, not a live feed. That reasoning ignored the more interesting case — **03 writes into
+02**. When the nightly agent records its recommendations, watching them appear is what
+makes the link between the two projects visible instead of a claim in a README. So the
+decision was reversed, and the dashboard now shows what the agent proposed.
+
+The subscription then failed in the most misleading way available. Realtime evaluates
+row-level security against the **subscriber's JWT**, and the component opened its channel
+before the session had finished loading. Supabase accepts that without complaint: the
+channel subscribes, reports `SUBSCRIBED`, and delivers nothing at all, because anonymous
+can see no rows. The UI would have shown **a green "Live" badge over a dead socket**.
+
+Found by bisecting rather than guessing: a service-role subscriber received events
+immediately, which ruled out the publication and the service and pointed straight at
+authorisation. The fix is to attach the token with `realtime.setAuth()` before
+subscribing.
+
+The test had the same flaw in a worse place. "B is not told about A's rows" **passed**
+while the socket was delivering nothing — a leak check that passes because the feature is
+broken. It is now skipped unless "B is told about its own rows" passes first.
+
 ## Hard parts / dead ends
 
 ### Row-level security locked out my own trigger
@@ -224,8 +247,11 @@ test that found the trigger bug above — the seed could never have found it.
   for what it does not cover.
 - **No dark mode.** A second palette validated against a dark surface is real work, and
   one excellent theme beats two mediocre ones inside the time-box.
-- **No realtime.** Two open tabs will not sync until revalidation. Deliberate: a pricing
-  review is a thing you sit down and do, not a live feed.
+- **Realtime refreshes rather than patching.** A change triggers a re-query instead of
+  updating client state in place. One extra round trip, and no second copy of the ageing
+  maths in JavaScript to drift from the SQL.
+- **Presence and broadcast are unused.** Only database changes are subscribed to; there
+  is no "who else is viewing this" or cursor sharing.
 - **No face or numberplate blurring.** A forecourt photo can catch a passer-by or a
   plate. Metadata is handled; pixels are not.
 - **Dealer settings have no UI.** The daily holding rate is seeded and editable in the

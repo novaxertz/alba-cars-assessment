@@ -1,5 +1,5 @@
 import { createClient } from './supabase/server';
-import type { AgeingRow, SummaryRow, PriceChange, SignedPhoto, Vehicle, VehiclePhoto } from './types';
+import type { AgeingRow, RecommendationWithVehicle, SummaryRow, PriceChange, SignedPhoto, Vehicle, VehiclePhoto } from './types';
 
 /**
  * Every read below goes through the caller's session. There is no server-side
@@ -84,6 +84,27 @@ export async function getDecaySeries(limit = 4) {
     ];
     return { id: r.id, label: `${r.make} ${r.model}`, cost: r.acquisition_cost_aed, points };
   });
+}
+
+/**
+ * What the nightly agent in ../03-n8n-workflow last recommended.
+ *
+ * These rows are written by the automation using the service role, but they carry an
+ * owner_id and the table has RLS — so each dealer sees only their own, exactly as with
+ * everything else. One automation writes for everyone; the boundary still holds.
+ */
+export async function getLatestRecommendations(limit = 6): Promise<RecommendationWithVehicle[]> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('markdown_recommendations')
+    .select('*, vehicles(make, model, year, vin)')
+    .order('run_date', { ascending: false })
+    .order('days_on_lot', { ascending: false })
+    .limit(limit);
+
+  if (error) throw new Error(`Could not load recommendations: ${error.message}`);
+  return (data ?? []) as RecommendationWithVehicle[];
 }
 
 export async function getCurrentUser() {

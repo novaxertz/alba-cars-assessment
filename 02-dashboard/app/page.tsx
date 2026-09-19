@@ -1,14 +1,15 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { getAgeing, getCoverPhotos, getCurrentUser, getDecaySeries, getSummary } from '@/lib/queries';
+import { getAgeing, getCoverPhotos, getCurrentUser, getDecaySeries, getLatestRecommendations, getSummary } from '@/lib/queries';
 import { aed, bucketLabel } from '@/lib/format';
 import { AgeingChart, DecayChart } from '@/components/Charts';
+import { Recommendations } from '@/components/Recommendations';
 import { Header } from '@/components/Header';
 import { BucketPill, EmptyState, Money, PhotoPlaceholder, StatTile, StatusChip } from '@/components/ui';
 
 export default async function DashboardPage() {
-  const [user, rows, summary, decay] = await Promise.all([
-    getCurrentUser(), getAgeing(), getSummary(), getDecaySeries(),
+  const [user, rows, summary, decay, recommendations] = await Promise.all([
+    getCurrentUser(), getAgeing(), getSummary(), getDecaySeries(), getLatestRecommendations(),
   ]);
   // Signed in one batch rather than one request per row.
   const covers = await getCoverPhotos(rows.map((r) => r.id));
@@ -53,6 +54,10 @@ export default async function DashboardPage() {
             )}
           </div>
         </section>
+
+        <div className="mt-4">
+          <Recommendations rows={recommendations} />
+        </div>
 
         <section className="mt-4" aria-label="Inventory">
           {rows.length === 0 ? (

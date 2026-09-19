@@ -164,5 +164,66 @@ check('A can read its own photo through a signed URL', signedFetch?.ok === true,
 // tidy up
 await admin.storage.from('vehicle-photos').remove([aPath, `${userA.id}/intruder.png`]);
 
+// --- realtime ----------------------------------------------------------------------
+// A socket is a second way out of the database, and it would be easy to secure the REST
+// API and leave this open. Supabase evaluates the subscriber's policies before
+// delivering a change - so dealer B, listening on the same channel name as dealer A,
+// should hear its own rows and nothing of A's.
+console.log('\n--- realtime ---');
+
+const heard = { own: false, other: false };
+
+// Attach B's token to the socket before subscribing. Realtime evaluates RLS against
+// the subscriber's JWT, so a channel opened without it is anonymous: it subscribes,
+// reports SUBSCRIBED, and receives nothing. That is exactly how this failed first time.
+const { data: bSession } = await asB.auth.getSession();
+await asB.realtime.setAuth(bSession.session.access_token);
+
+const channel = asB
+  .channel('lot-changes')
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'vehicles' }, (payload) => {
+    const row = payload.new ?? payload.old ?? {};
+    if (row.owner_id === userB.id) heard.own = true;
+    if (row.owner_id === userA.id) heard.other = true;
+  });
+
+const subscribed = await new Promise((resolve) => {
+  const t = setTimeout(() => resolve(false), 12000);
+  channel.subscribe((status) => {
+    if (status === 'SUBSCRIBED') { clearTimeout(t); resolve(true); }
+    if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') { clearTimeout(t); resolve(false); }
+  });
+});
+
+if (!subscribed) {
+  check('B can open a realtime channel', false, 'did not subscribe - is the table in the supabase_realtime publication?');
+} else {
+  // Touch one row of each dealer's, using the service role so both writes definitely happen.
+  const { data: bRow } = await admin.from('vehicles').select('id, mileage_km').eq('owner_id', userB.id).limit(1).single();
+  const { data: aRow } = await admin.from('vehicles').select('id, mileage_km').eq('owner_id', userA.id).limit(1).single();
+
+  await admin.from('vehicles').update({ mileage_km: bRow.mileage_km + 1 }).eq('id', bRow.id);
+  await admin.from('vehicles').update({ mileage_km: aRow.mileage_km + 1 }).eq('id', aRow.id);
+
+  await new Promise((r) => setTimeout(r, 4000));
+
+  check('B is told about its own rows', heard.own, heard.own ? 'received' : 'nothing arrived');
+
+  // The negative check is only evidence if the positive one passed. Otherwise "no
+  // leak" is indistinguishable from "the socket delivers nothing at all", and a test
+  // that passes because the feature is broken is worse than no test.
+  if (heard.own) {
+    check("B is NOT told about A's rows", !heard.other, heard.other ? "A's change LEAKED over the socket" : 'nothing leaked');
+  } else {
+    console.log("SKIP  B is NOT told about A's rows — inconclusive while nothing is being delivered");
+  }
+
+  // put the mileage back
+  await admin.from('vehicles').update({ mileage_km: bRow.mileage_km }).eq('id', bRow.id);
+  await admin.from('vehicles').update({ mileage_km: aRow.mileage_km }).eq('id', aRow.id);
+}
+
+await asB.removeChannel(channel);
+
 console.log(`\n${failures === 0 ? 'boundary holds: all checks passed' : `${failures} CHECK(S) FAILED`}`);
 process.exit(failures === 0 ? 0 : 1);

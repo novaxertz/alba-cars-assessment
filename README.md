@@ -13,6 +13,7 @@ stock is costing. **03** acts on that every night and writes its recommendations
         vehicles, price history  ──►   reads the aged inventory
         ageing + holding cost          scores a markdown for each
         RLS per dealer            ◄──  writes recommendations back
+        live: the review appears            (no refresh needed)
               │                              │
               │ VIN                          │ VIN
               ▼                              ▼
@@ -54,7 +55,7 @@ other's rows:
 The 148-day Lexus at the top of dealer A's list is the point: it has already eaten its
 own profit in carrying cost.
 
-Supabase · **auth + row-level security + analytics computed in Postgres + private photo storage** ·
+Supabase · **auth + RLS + analytics in Postgres + private photo storage + realtime** ·
 [the boundary proof](./02-dashboard/docs/security-boundary.md) ·
 [build log](./02-dashboard/BUILD_LOG.md)
 

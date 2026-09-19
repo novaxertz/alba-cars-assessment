@@ -1,5 +1,6 @@
 import { signOut } from '@/app/actions';
 import { AddVehicleForm } from './Forms';
+import { Realtime } from './Realtime';
 
 export function Header({ email }: { email: string }) {
   return (
@@ -9,6 +10,7 @@ export function Header({ email }: { email: string }) {
           <p className="text-[15px] font-semibold tracking-tight">Lot</p>
           <p className="hidden text-[12px] text-ink-muted sm:block">Inventory ageing &amp; price decay</p>
         </div>
+        <Realtime />
         <span className="hidden text-[13px] text-ink-secondary sm:inline">{email}</span>
         <AddVehicleForm />
         <form action={signOut}>

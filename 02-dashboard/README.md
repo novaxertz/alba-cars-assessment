@@ -44,6 +44,11 @@ carrying cost.
   database trigger, never by the application.
 - **Per-dealer isolation** — auth plus row-level security, with the boundary proved by a
   script rather than asserted.
+- **Live updates** — the dashboard reflects changes as they happen: another tab, another
+  device, or the nightly agent in `../03-n8n-workflow` writing its recommendations. Open
+  the dashboard, run the agent, and the nightly review appears without a refresh.
+- **The nightly review, in the product** — what the agent proposed, with its reasoning,
+  and nothing applied automatically.
 - Skeleton loading states that mirror the real layout, empty states, an error boundary
   that shows what actually came back, and a responsive layout down to phone width.
 
@@ -179,6 +184,7 @@ folder even if the application asked them to.
 | `vehicle_ageing` | view, `security_invoker = true` | Days on lot, holding cost, markdown to date, margin at list, ageing bucket. |
 | `inventory_ageing_summary()` | function, `SECURITY INVOKER`, `stable` | Per-bucket aggregates: count, capital, holding cost, markdown. Feeds the first chart. |
 | 4 policies on `storage.objects` | RLS | Per-dealer read, upload, replace and delete, keyed on the first path segment. |
+| `supabase_realtime` publication | replication | `vehicles`, `price_changes`, `markdown_recommendations`, each with `REPLICA IDENTITY FULL` so updates and deletes carry enough of the old row for RLS to judge who may hear about it. |
 
 **Auth:** Supabase email/password. Session refresh in `proxy.ts` (Next.js 16's rename of
 `middleware.ts`).
@@ -210,8 +216,8 @@ Browser ──► Next.js Server Components ──► Supabase PostgREST ──�
 
 ## Advanced features, and how they were verified
 
-Four: **auth**, **row-level security**, **server-computed analytics**, and **file
-storage**.
+All four: **auth**, **row-level security**, **server-computed analytics**, **file
+storage**, and **realtime**.
 
 The full verification write-up is in
 [docs/security-boundary.md](./docs/security-boundary.md); the short version:
@@ -336,8 +342,9 @@ you judge the app.
 - **Upload is capped by the platform, not by us.** A Server Action body is limited to
   around 4.5MB. The browser downscales first so this is rarely reached, but a very large
   image on a device where `createImageBitmap` is unavailable would still fail.
-- **No realtime.** Open two tabs and the second will not update until it revalidates.
-  Deliberate — see the backend choice above.
+- **Realtime holds no client-side copy of the data.** A change arrives and the page
+  re-queries. That is a deliberate trade: one extra round trip in exchange for never
+  having a second implementation of the ageing maths in JavaScript.
 - **Dealer settings have no UI yet.** The daily holding rate is seeded and editable in
   the database, not in the app.
 - **Seeded VINs are synthetic**, but most of them do decode: the recall checker in

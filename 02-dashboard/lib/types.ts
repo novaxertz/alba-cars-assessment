@@ -66,3 +66,21 @@ export type VehiclePhoto = {
 
 /** A photo with a short-lived URL attached. The URL is never stored. */
 export type SignedPhoto = VehiclePhoto & { url: string };
+
+export type MarkdownRecommendation = {
+  id: string;
+  vehicle_id: string;
+  run_date: string;
+  days_on_lot: number;
+  holding_cost_aed: number;
+  current_price_aed: number;
+  recommended_price_aed: number;
+  severity: 'watch' | 'act' | 'urgent';
+  rationale: string;
+  applied: boolean;
+  created_at: string;
+};
+
+export type RecommendationWithVehicle = MarkdownRecommendation & {
+  vehicles: { make: string; model: string; year: number; vin: string } | null;
+};
