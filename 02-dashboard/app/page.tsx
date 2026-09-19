@@ -4,7 +4,7 @@ import { getAgeing, getCoverPhotos, getCurrentUser, getDecaySeries, getSummary }
 import { aed, bucketLabel } from '@/lib/format';
 import { AgeingChart, DecayChart } from '@/components/Charts';
 import { Header } from '@/components/Header';
-import { BucketPill, EmptyState, Money, StatTile, StatusChip } from '@/components/ui';
+import { BucketPill, EmptyState, Money, PhotoPlaceholder, StatTile, StatusChip } from '@/components/ui';
 
 export default async function DashboardPage() {
   const [user, rows, summary, decay] = await Promise.all([
@@ -95,12 +95,7 @@ export default async function DashboardPage() {
                                 className="h-12 w-16 shrink-0 rounded-md object-cover"
                               />
                             ) : (
-                              <span
-                                aria-hidden
-                                className="flex h-12 w-16 shrink-0 items-center justify-center rounded-md border border-dashed border-hairline text-[10px] text-ink-muted"
-                              >
-                                no photo
-                              </span>
+                              <PhotoPlaceholder className="h-12 w-16 shrink-0" />
                             )}
                             <div className="min-w-0">
                           <Link href={`/vehicles/${r.id}`} className="font-medium hover:text-[color:var(--accent-ink)]">

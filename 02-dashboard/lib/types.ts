@@ -59,6 +59,7 @@ export type VehiclePhoto = {
   id: string;
   vehicle_id: string;
   storage_path: string;
+  thumb_path: string | null;
   is_cover: boolean;
   created_at: string;
 };

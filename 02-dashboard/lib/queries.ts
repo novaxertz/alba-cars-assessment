@@ -133,20 +133,24 @@ export async function getCoverPhotos(vehicleIds: string[]): Promise<Map<string, 
 
   const { data: rows } = await supabase
     .from('vehicle_photos')
-    .select('vehicle_id, storage_path')
+    .select('vehicle_id, storage_path, thumb_path')
     .in('vehicle_id', vehicleIds)
     .eq('is_cover', true);
 
   if (!rows?.length) return new Map();
 
+  // Sign the thumbnail, not the full photo. Photos uploaded before thumbnails existed
+  // fall back to the original rather than showing nothing.
+  const paths = rows.map((r) => r.thumb_path ?? r.storage_path);
+
   const { data: signed } = await supabase.storage
     .from(BUCKET)
-    .createSignedUrls(rows.map((r) => r.storage_path), SIGNED_URL_TTL);
+    .createSignedUrls(paths, SIGNED_URL_TTL);
 
   const urlFor = new Map((signed ?? []).map((s) => [s.path, s.signedUrl]));
   return new Map(
     rows
-      .map((r) => [r.vehicle_id, urlFor.get(r.storage_path) ?? ''] as const)
+      .map((r) => [r.vehicle_id, urlFor.get(r.thumb_path ?? r.storage_path) ?? ''] as const)
       .filter(([, url]) => url),
   );
 }

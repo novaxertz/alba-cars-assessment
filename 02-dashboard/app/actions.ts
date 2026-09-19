@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import sharp from 'sharp';
 import { createClient } from '@/lib/supabase/server';
 
 export type ActionState = { ok: boolean; error?: string; message?: string } | null;
@@ -143,6 +144,38 @@ const MAX_BYTES = 5 * 1024 * 1024;
 const ALLOWED = ['image/jpeg', 'image/png', 'image/webp'];
 
 /**
+ * Process an upload before it is stored.
+ *
+ * Three things happen here, and the first is the one that matters:
+ *
+ * 1. **EXIF is stripped.** A photo taken on a phone on the forecourt carries the
+ *    coordinates of the forecourt, the device model, and the time it was taken. sharp
+ *    drops all of it unless explicitly asked to keep it, and `.rotate()` applies the
+ *    orientation tag first so the picture is not sideways once the tag is gone.
+ *    Verified rather than assumed: a test JPEG carrying GPS tags comes out the other
+ *    side with no EXIF block at all.
+ * 2. **It is resized** to 1600px on the long edge. Nobody needs a 12-megapixel image of
+ *    a used Corolla, and a 5MB upload becomes roughly 200KB.
+ * 3. **A thumbnail is generated** at 480px for the inventory list, which was previously
+ *    signing and serving full-size photos to render them at 64x48.
+ *
+ * Everything is re-encoded to JPEG. That normalises the format, and re-encoding is also
+ * what guarantees the metadata is gone - it is a new file, not an edited one.
+ */
+async function processImage(file: File) {
+  const input = Buffer.from(await file.arrayBuffer());
+
+  const [full, thumb] = await Promise.all([
+    sharp(input).rotate().resize(1600, null, { withoutEnlargement: true, fit: 'inside' })
+      .jpeg({ quality: 82, mozjpeg: true }).toBuffer(),
+    sharp(input).rotate().resize(480, null, { withoutEnlargement: true, fit: 'inside' })
+      .jpeg({ quality: 75, mozjpeg: true }).toBuffer(),
+  ]);
+
+  return { full, thumb };
+}
+
+/**
  * Upload a photo for a vehicle.
  *
  * The path is `<owner_id>/<vehicle_id>/<random>.<ext>` and the storage policies compare
@@ -172,14 +205,32 @@ export async function uploadVehiclePhoto(_prev: ActionState, formData: FormData)
   const { data: vehicle } = await supabase.from('vehicles').select('id').eq('id', vehicleId).maybeSingle();
   if (!vehicle) return { ok: false, error: 'Vehicle not found.' };
 
-  const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
-  const path = `${auth.user.id}/${vehicleId}/${crypto.randomUUID()}.${ext}`;
+  let processed;
+  try {
+    processed = await processImage(file);
+  } catch {
+    // A file that claims to be an image and is not will fail here rather than being
+    // stored and served to somebody later.
+    return { ok: false, error: 'That file could not be read as an image.' };
+  }
+
+  const id = crypto.randomUUID();
+  const path = `${auth.user.id}/${vehicleId}/${id}.jpg`;
+  const thumbPath = `${auth.user.id}/${vehicleId}/${id}-thumb.jpg`;
 
   const { error: uploadError } = await supabase.storage
     .from(PHOTO_BUCKET)
-    .upload(path, file, { contentType: file.type, upsert: false });
+    .upload(path, processed.full, { contentType: 'image/jpeg', upsert: false });
 
   if (uploadError) return { ok: false, error: `Upload failed: ${uploadError.message}` };
+
+  const { error: thumbError } = await supabase.storage
+    .from(PHOTO_BUCKET)
+    .upload(thumbPath, processed.thumb, { contentType: 'image/jpeg', upsert: false });
+
+  // A missing thumbnail is survivable - the app falls back to the full image - so this
+  // does not fail the upload.
+  const storedThumb = thumbError ? null : thumbPath;
 
   // First photo becomes the cover. The partial unique index makes "exactly one cover"
   // a property of the table rather than something this function has to get right.
@@ -191,12 +242,13 @@ export async function uploadVehiclePhoto(_prev: ActionState, formData: FormData)
   const { error: rowError } = await supabase.from('vehicle_photos').insert({
     vehicle_id: vehicleId,
     storage_path: path,
+    thumb_path: storedThumb,
     is_cover: (count ?? 0) === 0,
   });
 
   if (rowError) {
-    // Do not leave an orphaned file behind if the row fails.
-    await supabase.storage.from(PHOTO_BUCKET).remove([path]);
+    // Do not leave orphaned files behind if the row fails.
+    await supabase.storage.from(PHOTO_BUCKET).remove([path, thumbPath]);
     return { ok: false, error: rowError.message };
   }
 
@@ -212,14 +264,16 @@ export async function deleteVehiclePhoto(formData: FormData) {
   const supabase = await createClient();
   const { data: photo } = await supabase
     .from('vehicle_photos')
-    .select('storage_path, is_cover')
+    .select('storage_path, thumb_path, is_cover')
     .eq('id', id)
     .maybeSingle();
 
   if (!photo) return;
 
   await supabase.from('vehicle_photos').delete().eq('id', id);
-  await supabase.storage.from(PHOTO_BUCKET).remove([photo.storage_path]);
+  await supabase.storage
+    .from(PHOTO_BUCKET)
+    .remove([photo.storage_path, photo.thumb_path].filter(Boolean) as string[]);
 
   // Deleting the cover leaves the vehicle without one, so promote the next photo.
   if (photo.is_cover) {

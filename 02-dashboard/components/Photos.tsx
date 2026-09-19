@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import { useActionState, useRef } from 'react';
 import { deleteVehiclePhoto, setCoverPhoto, uploadVehiclePhoto, type ActionState } from '@/app/actions';
+import { PhotoPlaceholder } from './ui';
 import type { SignedPhoto } from '@/lib/types';
 
 /**
@@ -25,6 +26,10 @@ export function Photos({ vehicleId, photos }: { vehicleId: string; photos: Signe
           {photos.length === 0 ? 'None yet' : `${photos.length} · the cover shows on the inventory list`}
         </p>
       </div>
+
+      {photos.length === 0 && (
+        <PhotoPlaceholder className="mt-4 aspect-[4/3] w-full max-w-[220px]" label="No photos for this vehicle yet" />
+      )}
 
       {photos.length > 0 && (
         <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -103,8 +108,10 @@ export function Photos({ vehicleId, photos }: { vehicleId: string; photos: Signe
         )}
 
         <p className="w-full text-[12px] text-ink-muted">
-          JPEG, PNG or WebP, up to 5MB. Stored in a private bucket — images are served
-          through links that expire after an hour, never a public URL.
+          JPEG, PNG or WebP, up to 5MB. Resized to 1600px and re-encoded on upload, which
+          strips EXIF — a phone photo taken on the forecourt carries its coordinates, and
+          those are not ours to publish. Stored in a private bucket and served through
+          links that expire after an hour, never a public URL.
         </p>
       </form>
     </section>
