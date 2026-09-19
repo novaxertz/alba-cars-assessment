@@ -23,6 +23,19 @@ type Origin = { key: string; rect: DOMRect };
 
 let pending: Origin | null = null;
 
+/**
+ * `?motion=slow` multiplies every duration by four.
+ *
+ * Added because "I can't tell there's an animation" is not a bug report anyone can act
+ * on, and neither is "looks fine to me". At 4x the movement is unmistakable, which
+ * makes it possible to agree on what it actually does before arguing about timing. It
+ * is also how the walkthrough video shows the morph without slowing the recording.
+ */
+const speed = () => {
+  if (typeof window === 'undefined') return 1;
+  return new URLSearchParams(window.location.search).get('motion') === 'slow' ? 4 : 1;
+};
+
 const reduced = () =>
   typeof window !== 'undefined' &&
   window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -45,7 +58,7 @@ export function playExit(el: HTMLElement | null) {
       { transform: 'translate3d(0, 0, 0) scale(1)', opacity: 1 },
       { transform: 'translate3d(0, -10px, 0) scale(0.985)', opacity: 0 },
     ],
-    { duration: 220, easing: 'cubic-bezier(0.4, 0, 1, 1)', fill: 'forwards' },
+    { duration: 220 * speed(), easing: 'cubic-bezier(0.4, 0, 1, 1)', fill: 'forwards' },
   );
 }
 
@@ -96,7 +109,7 @@ export function playFrom(key: string, el: HTMLElement | null): boolean {
       { transform: 'translate3d(0, 0, 0) scale(1)', opacity: 1 },
     ],
     {
-      duration: 560,
+      duration: 560 * speed(),
       // Expo-out: most of the distance is covered early, then it settles. Reads as
       // deliberate rather than linear.
       easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
