@@ -1,8 +1,9 @@
 import { notFound } from 'next/navigation';
-import { getAgeingRow, getCurrentUser, getPriceHistory, getVehicle } from '@/lib/queries';
+import { getAgeingRow, getCurrentUser, getPriceHistory, getVehicle, getVehiclePhotos } from '@/lib/queries';
 import { aed } from '@/lib/format';
 import { deleteVehicle } from '@/app/actions';
 import { PriceForm, SoldForm } from '@/components/Forms';
+import { Photos } from '@/components/Photos';
 import { Header } from '@/components/Header';
 import { BackLink, BucketPill, Money, StatTile, StatusChip } from '@/components/ui';
 
@@ -10,8 +11,8 @@ export default async function VehiclePage({ params }: PageProps<'/vehicles/[id]'
   // Next 16: params is a promise.
   const { id } = await params;
 
-  const [user, vehicle, ageing, history] = await Promise.all([
-    getCurrentUser(), getVehicle(id), getAgeingRow(id), getPriceHistory(id),
+  const [user, vehicle, ageing, history, photos] = await Promise.all([
+    getCurrentUser(), getVehicle(id), getAgeingRow(id), getPriceHistory(id), getVehiclePhotos(id),
   ]);
 
   // A vehicle belonging to another dealer is not "forbidden" here, it is invisible —
@@ -48,6 +49,10 @@ export default async function VehiclePage({ params }: PageProps<'/vehicles/[id]'
             tone={ageing.margin_at_list_aed < 0 ? 'critical' : 'plain'}
           />
         </section>
+
+        <div className="mt-4">
+          <Photos vehicleId={id} photos={photos} />
+        </div>
 
         <section className="card rise mt-4 p-5">
           <h2 className="text-[15px] font-semibold">Price history</h2>

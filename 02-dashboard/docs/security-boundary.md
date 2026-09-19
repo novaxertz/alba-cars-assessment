@@ -6,10 +6,11 @@ run as a script so it can be repeated: `npm run verify:rls`.
 ## What it does
 
 It signs in as dealer A using the **anon key only** — exactly what a browser has — and
-then tries ten ways to reach dealer B's data. The service-role key is used solely to
-look up B's row ids beforehand, so the script knows what it is supposed to fail to read.
+then tries sixteen ways to reach dealer B's data, across the database and the storage
+bucket. The service-role key is used solely to look up B's row ids beforehand, so the
+script knows what it is supposed to fail to read.
 
-The three read paths are tested separately because they fail independently:
+The three database read paths are tested separately because they fail independently:
 
 | Path | Protected by |
 |---|---|
@@ -23,22 +24,36 @@ covering every dealer's inventory while the tables underneath look perfectly loc
 The check on the RPC compares its total against dealer A's true unsold count: if the
 view or function leaked, that number would come back too high rather than erroring.
 
+**Storage is checked the same way.** A bucket is only private if its policies say so,
+and "it's set to private" is exactly the kind of claim that is easy to make and easy to
+get wrong. So dealer A uploads a photo and dealer B is made to try to download it by its
+exact path, list A's folder, and write into it — and the object's public URL is fetched
+with no credentials at all.
+
 ## Result
 
 ```
-dealer B owns 3 vehicles; dealer A owns 10
-target row: VF1RFA00X54900211 (a26b3cdf-62a8-4b8e-bdf8-092c66c650f8)
+dealer B owns 3 vehicles; dealer A owns 11
+target row: VF1RFA00X54900211 (0e4f3ce3-59c0-4178-94c8-c5ee88d6611b)
 
 PASS  A reads B's vehicles by owner_id — 0 rows
 PASS  A reads B's vehicle by its exact id — 0 rows
-PASS  A unfiltered select returns only A rows — 10 rows, expected 10
+PASS  A unfiltered select returns only A rows — 11 rows, expected 11
 PASS  A reads B's price history — 0 rows
 PASS  A reads B's rows through the ageing view — 0 rows
-PASS  RPC totals cover only A inventory — RPC counted 9, A owns 9 unsold
+PASS  RPC totals cover only A inventory — RPC counted 10, A owns 10 unsold
 PASS  A cannot update B's vehicle — 0 rows changed
 PASS  A cannot insert a row owned by B — refused by policy
 PASS  Nobody can hand-write price history — refused by policy
 PASS  Signed-out reader sees nothing — 0 rows
+
+--- private bucket ---
+PASS  A can upload into its own folder — uploaded
+PASS  B cannot download A's photo by path — refused
+PASS  B cannot list A's folder — 0 objects visible
+PASS  B cannot upload into A's folder — refused by policy
+PASS  The bucket is not publicly readable — public URL returned 400
+PASS  A can read its own photo through a signed URL — signed URL returned 200
 
 boundary holds: all checks passed
 ```
@@ -48,6 +63,9 @@ boundary holds: all checks passed
 - The check runs against the deployed project with seeded data, not against every
   possible policy edge. A policy added later could regress it — which is why it is a
   script rather than a screenshot.
-- It tests the PostgREST surface, which is what the browser can reach. It does not test
-  direct database connections, which are protected by the database password instead.
-- Storage buckets are not used by this project, so bucket access rules are untested.
+- It tests the PostgREST and Storage surfaces, which are what the browser can reach. It
+  does not test direct database connections, which are protected by the database
+  password instead.
+- Signed URLs are bearer tokens for their lifetime: anyone who obtains one can read that
+  object until it expires (an hour). That is the trade-off for serving private images
+  without proxying every byte through the app.

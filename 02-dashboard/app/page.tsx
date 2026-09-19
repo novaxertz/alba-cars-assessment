@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { getAgeing, getCurrentUser, getDecaySeries, getSummary } from '@/lib/queries';
+import Image from 'next/image';
+import { getAgeing, getCoverPhotos, getCurrentUser, getDecaySeries, getSummary } from '@/lib/queries';
 import { aed, bucketLabel } from '@/lib/format';
 import { AgeingChart, DecayChart } from '@/components/Charts';
 import { Header } from '@/components/Header';
@@ -9,6 +10,8 @@ export default async function DashboardPage() {
   const [user, rows, summary, decay] = await Promise.all([
     getCurrentUser(), getAgeing(), getSummary(), getDecaySeries(),
   ]);
+  // Signed in one batch rather than one request per row.
+  const covers = await getCoverPhotos(rows.map((r) => r.id));
 
   const unsold = rows.filter((r) => r.status !== 'sold');
   const capital = unsold.reduce((n, r) => n + r.acquisition_cost_aed, 0);
@@ -81,12 +84,33 @@ export default async function DashboardPage() {
                     {rows.map((r) => (
                       <tr key={r.id} className="border-t border-hairline transition-colors hover:bg-[#f5f5f2]">
                         <td className="px-5 py-3">
+                          <div className="flex items-start gap-3">
+                            {covers.get(r.id) ? (
+                              <Image
+                                src={covers.get(r.id)!}
+                                alt=""
+                                width={64}
+                                height={48}
+                                unoptimized
+                                className="h-12 w-16 shrink-0 rounded-md object-cover"
+                              />
+                            ) : (
+                              <span
+                                aria-hidden
+                                className="flex h-12 w-16 shrink-0 items-center justify-center rounded-md border border-dashed border-hairline text-[10px] text-ink-muted"
+                              >
+                                no photo
+                              </span>
+                            )}
+                            <div className="min-w-0">
                           <Link href={`/vehicles/${r.id}`} className="font-medium hover:text-[color:var(--accent-ink)]">
                             {r.make} {r.model}
                           </Link>
                           <span className="ml-2 text-[12px] text-ink-muted">{r.year}</span>
                           <span className="ml-2"><StatusChip status={r.status} /></span>
                           <span className="tnum mt-0.5 block text-[12px] text-ink-muted">{r.vin}</span>
+                            </div>
+                          </div>
                         </td>
                         <td className="px-3 py-3">
                           <span className="tnum block">{r.days_on_lot}d</span>

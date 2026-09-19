@@ -142,9 +142,24 @@ Ownership on both tables is `owner_id → auth.users.id`.
 
 ## Services used
 
-**No storage buckets.** Nothing in this app needs file uploads — vehicle photography is
-explicitly out of scope — so there are no buckets and no bucket access rules to get
-wrong.
+**One storage bucket: `vehicle-photos`, and it is private.**
+
+A public bucket is one line less work and means every photo on every dealer's lot is
+readable by anyone who guesses a URL — which quietly undoes the boundary the rest of
+this schema spends its effort enforcing. Images are served through signed URLs generated
+per request, which expire after an hour and are never persisted.
+
+| | |
+|---|---|
+| Visibility | private |
+| Size limit | 5MB |
+| Allowed types | `image/jpeg`, `image/png`, `image/webp` — **no SVG**, which can carry script |
+| Path convention | `<owner_id>/<vehicle_id>/<random>.<ext>` |
+
+Ownership rides on the path: the storage policies read the first segment with
+`storage.foldername(name)[1]` and compare it to `auth.uid()`. It is the same rule as
+every table here, applied to storage — so a dealer cannot write into another dealer's
+folder even if the application asked them to.
 
 **Database functions and views** (all in `supabase/migrations/`):
 
@@ -154,6 +169,7 @@ wrong.
 | `log_price_change()` | trigger fn, `SECURITY DEFINER` | Writes the `price_changes` row whenever `list_price_aed` changes. See the build log for why this one has to be definer. |
 | `vehicle_ageing` | view, `security_invoker = true` | Days on lot, holding cost, markdown to date, margin at list, ageing bucket. |
 | `inventory_ageing_summary()` | function, `SECURITY INVOKER`, `stable` | Per-bucket aggregates: count, capital, holding cost, markdown. Feeds the first chart. |
+| 4 policies on `storage.objects` | RLS | Per-dealer read, upload, replace and delete, keyed on the first path segment. |
 
 **Auth:** Supabase email/password. Session refresh in `proxy.ts` (Next.js 16's rename of
 `middleware.ts`).
@@ -185,16 +201,20 @@ Browser ──► Next.js Server Components ──► Supabase PostgREST ──�
 
 ## Advanced features, and how they were verified
 
-Three: **auth**, **row-level security**, and **server-computed analytics**.
+Four: **auth**, **row-level security**, **server-computed analytics**, and **file
+storage**.
 
 The full verification write-up is in
 [docs/security-boundary.md](./docs/security-boundary.md); the short version:
 
 `npm run verify:rls` signs in as dealer A with **nothing but the anon key** — exactly
-what a browser has — and tries ten ways to reach dealer B's data: by owner id, by exact
-primary key, unfiltered, through price history, through the ageing view, through the
-summary RPC, by update, by insert-as-someone-else, by forging history, and signed out
-entirely. All ten come back empty or refused.
+what a browser has — and tries **sixteen** ways to reach dealer B's data: by owner id,
+by exact primary key, unfiltered, through price history, through the ageing view,
+through the summary RPC, by update, by insert-as-someone-else, by forging history,
+signed out entirely — and then six more against storage: downloading B's photo by its
+exact path, listing B's folder, uploading into B's folder, and fetching the object's
+public URL with no credentials at all (it returns `400`, because the bucket is private).
+All sixteen come back empty or refused.
 
 The three read paths are checked **separately**, because they fail independently:
 
@@ -296,6 +316,15 @@ you judge the app.
   units by age needs.
 - **No dark mode.** A second palette validated against a dark surface is real work, and
   I would rather ship one excellent theme than two mediocre ones.
+- **Photos are served with `unoptimized`.** Next's image optimiser would need to fetch
+  and cache them, which defeats the point of a URL that expires. The cost is that a
+  large upload is served at full size.
+- **A signed URL is a bearer token for its lifetime.** Anyone who obtains one can read
+  that object for an hour. The alternative is proxying every image byte through the app,
+  which is the wrong trade for stock photography.
+- **No image processing.** No resizing, no thumbnails, no EXIF stripping — a phone photo
+  is stored as uploaded, and EXIF can carry GPS coordinates. That is the first thing I
+  would add.
 - **No realtime.** Open two tabs and the second will not update until it revalidates.
   Deliberate — see the backend choice above.
 - **Dealer settings have no UI yet.** The daily holding rate is seeded and editable in

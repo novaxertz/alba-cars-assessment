@@ -54,3 +54,14 @@ export type PriceChange = {
   reason: PriceReason;
   changed_at: string;
 };
+
+export type VehiclePhoto = {
+  id: string;
+  vehicle_id: string;
+  storage_path: string;
+  is_cover: boolean;
+  created_at: string;
+};
+
+/** A photo with a short-lived URL attached. The URL is never stored. */
+export type SignedPhoto = VehiclePhoto & { url: string };

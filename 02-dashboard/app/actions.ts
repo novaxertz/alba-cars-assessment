@@ -137,3 +137,115 @@ export async function signOut() {
   revalidatePath('/', 'layout');
   redirect('/sign-in');
 }
+
+const PHOTO_BUCKET = 'vehicle-photos';
+const MAX_BYTES = 5 * 1024 * 1024;
+const ALLOWED = ['image/jpeg', 'image/png', 'image/webp'];
+
+/**
+ * Upload a photo for a vehicle.
+ *
+ * The path is `<owner_id>/<vehicle_id>/<random>.<ext>` and the storage policies compare
+ * that first segment to auth.uid(), so a dealer cannot write into anyone else's folder
+ * even if this action were called with someone else's vehicle id.
+ *
+ * The checks below are duplicated by the bucket configuration on purpose: the bucket is
+ * the guarantee, this is the friendly error. The filename from the browser is never
+ * used — it is attacker-controlled and only useful for its extension.
+ */
+export async function uploadVehiclePhoto(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const vehicleId = String(formData.get('vehicle_id') ?? '');
+  const file = formData.get('photo');
+
+  if (!(file instanceof File) || file.size === 0) return { ok: false, error: 'Choose a photo first.' };
+  if (!ALLOWED.includes(file.type)) return { ok: false, error: 'JPEG, PNG or WebP only.' };
+  if (file.size > MAX_BYTES) {
+    return { ok: false, error: `That is ${(file.size / 1024 / 1024).toFixed(1)}MB. The limit is 5MB.` };
+  }
+
+  const supabase = await createClient();
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) return { ok: false, error: 'Not signed in.' };
+
+  // Confirm the vehicle is visible to this user before writing anything. RLS would stop
+  // the insert anyway; this turns a policy violation into a sentence.
+  const { data: vehicle } = await supabase.from('vehicles').select('id').eq('id', vehicleId).maybeSingle();
+  if (!vehicle) return { ok: false, error: 'Vehicle not found.' };
+
+  const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
+  const path = `${auth.user.id}/${vehicleId}/${crypto.randomUUID()}.${ext}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from(PHOTO_BUCKET)
+    .upload(path, file, { contentType: file.type, upsert: false });
+
+  if (uploadError) return { ok: false, error: `Upload failed: ${uploadError.message}` };
+
+  // First photo becomes the cover. The partial unique index makes "exactly one cover"
+  // a property of the table rather than something this function has to get right.
+  const { count } = await supabase
+    .from('vehicle_photos')
+    .select('id', { count: 'exact', head: true })
+    .eq('vehicle_id', vehicleId);
+
+  const { error: rowError } = await supabase.from('vehicle_photos').insert({
+    vehicle_id: vehicleId,
+    storage_path: path,
+    is_cover: (count ?? 0) === 0,
+  });
+
+  if (rowError) {
+    // Do not leave an orphaned file behind if the row fails.
+    await supabase.storage.from(PHOTO_BUCKET).remove([path]);
+    return { ok: false, error: rowError.message };
+  }
+
+  revalidatePath(`/vehicles/${vehicleId}`);
+  revalidatePath('/');
+  return { ok: true, message: 'Photo added.' };
+}
+
+export async function deleteVehiclePhoto(formData: FormData) {
+  const id = String(formData.get('photo_id') ?? '');
+  const vehicleId = String(formData.get('vehicle_id') ?? '');
+
+  const supabase = await createClient();
+  const { data: photo } = await supabase
+    .from('vehicle_photos')
+    .select('storage_path, is_cover')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (!photo) return;
+
+  await supabase.from('vehicle_photos').delete().eq('id', id);
+  await supabase.storage.from(PHOTO_BUCKET).remove([photo.storage_path]);
+
+  // Deleting the cover leaves the vehicle without one, so promote the next photo.
+  if (photo.is_cover) {
+    const { data: next } = await supabase
+      .from('vehicle_photos')
+      .select('id')
+      .eq('vehicle_id', vehicleId)
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (next) await supabase.from('vehicle_photos').update({ is_cover: true }).eq('id', next.id);
+  }
+
+  revalidatePath(`/vehicles/${vehicleId}`);
+  revalidatePath('/');
+}
+
+export async function setCoverPhoto(formData: FormData) {
+  const id = String(formData.get('photo_id') ?? '');
+  const vehicleId = String(formData.get('vehicle_id') ?? '');
+
+  const supabase = await createClient();
+  // Clear first: the partial unique index refuses two covers, so the order matters.
+  await supabase.from('vehicle_photos').update({ is_cover: false }).eq('vehicle_id', vehicleId).eq('is_cover', true);
+  await supabase.from('vehicle_photos').update({ is_cover: true }).eq('id', id);
+
+  revalidatePath(`/vehicles/${vehicleId}`);
+  revalidatePath('/');
+}

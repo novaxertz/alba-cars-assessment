@@ -54,7 +54,7 @@ other's rows:
 The 148-day Lexus at the top of dealer A's list is the point: it has already eaten its
 own profit in carrying cost.
 
-Supabase · **auth + row-level security + analytics computed in Postgres** ·
+Supabase · **auth + row-level security + analytics computed in Postgres + private photo storage** ·
 [the boundary proof](./02-dashboard/docs/security-boundary.md) ·
 [build log](./02-dashboard/BUILD_LOG.md)
 

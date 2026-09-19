@@ -78,6 +78,25 @@ Both land exactly on the Supabase session wiring, which is the first thing this 
 needs. Reading first cost a few minutes; finding them by debugging would have
 cost more.
 
+### A private bucket, and proving it is private
+
+Photos are the one thing a dealership genuinely needs to store, so the bucket is real
+rather than a box ticked. It is private, and that decision carries the work: images are
+served through signed URLs generated per request, ownership is encoded in the object
+path (`<owner_id>/<vehicle_id>/<file>`), and four policies on `storage.objects` compare
+that first segment to `auth.uid()`.
+
+The claim "the bucket is private" is exactly the sort of thing that is easy to say and
+easy to get wrong, so the verification script now does six more checks: dealer B tries
+to download A's photo by its exact path, list A's folder, and upload into it, and the
+object's public URL is fetched with no credentials at all. That last one returns `400`,
+which is the answer that matters — there is no permanent address for a dealer's stock
+photography.
+
+Two smaller decisions inside that: SVG is excluded from the allowed types because it can
+carry script, and the browser's filename is never used for the stored path — it is
+attacker-controlled and only useful for its extension.
+
 ## Hard parts / dead ends
 
 ### Row-level security locked out my own trigger
@@ -179,6 +198,9 @@ test that found the trigger bug above — the seed could never have found it.
   one excellent theme beats two mediocre ones inside the time-box.
 - **No realtime.** Two open tabs will not sync until revalidation. Deliberate: a pricing
   review is a thing you sit down and do, not a live feed.
+- **No image processing on upload** — no resize, no thumbnail, no EXIF stripping. A
+  phone photo is stored exactly as uploaded, and EXIF can carry GPS coordinates. First
+  thing I would add.
 - **Dealer settings have no UI.** The daily holding rate is seeded and editable in the
   database only.
 - **Charts animate in on load.** Mid-animation the plot area looks empty, which reads as

@@ -9,6 +9,11 @@
  * that forgot security_invoker would leak every dealer's totals while the table
  * underneath looked perfectly locked.
  *
+ * Storage is checked too. A private bucket is only private if its policies say so, and
+ * "the bucket is set to private" is exactly the kind of claim that is easy to make and
+ * easy to get wrong — so dealer A uploads a photo and dealer B is made to try to read
+ * it, download it, and write into A's folder.
+ *
  * Run: npm run verify:rls
  */
 import { createClient } from '@supabase/supabase-js';
@@ -107,6 +112,57 @@ check('Nobody can hand-write price history', !!r9.error, r9.error ? 'refused by 
 const anon = createClient(URL_, ANON, { auth: { persistSession: false } });
 const r10 = await anon.from('vehicles').select('id');
 check('Signed-out reader sees nothing', (r10.data?.length ?? 0) === 0, `${r10.data?.length ?? '?'} rows`);
+
+// --- storage -----------------------------------------------------------------------
+console.log('\n--- private bucket ---');
+
+const asB = createClient(URL_, ANON, { auth: { persistSession: false } });
+await asB.auth.signInWithPassword({
+  email: env.SEED_USER_B_EMAIL,
+  password: env.SEED_USER_B_PASSWORD,
+});
+
+// A 1x1 PNG. The content is irrelevant; the path is what the policies read.
+const pixel = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+  'base64',
+);
+
+const { data: aVehicle } = await admin.from('vehicles').select('id').eq('owner_id', userA.id).limit(1).single();
+const aPath = `${userA.id}/${aVehicle.id}/boundary-probe.png`;
+
+const upload = await asA.storage.from('vehicle-photos').upload(aPath, pixel, {
+  contentType: 'image/png',
+  upsert: true,
+});
+check('A can upload into its own folder', !upload.error, upload.error?.message ?? 'uploaded');
+
+// 11. B downloads A's photo by its exact path
+const bDownload = await asB.storage.from('vehicle-photos').download(aPath);
+check("B cannot download A's photo by path", !!bDownload.error, bDownload.error ? 'refused' : 'DOWNLOADED');
+
+// 12. B lists A's folder
+const bList = await asB.storage.from('vehicle-photos').list(`${userA.id}/${aVehicle.id}`);
+check("B cannot list A's folder", (bList.data?.length ?? 0) === 0, `${bList.data?.length ?? 0} objects visible`);
+
+// 13. B writes into A's folder
+const bWrite = await asB.storage.from('vehicle-photos').upload(`${userA.id}/intruder.png`, pixel, {
+  contentType: 'image/png',
+});
+check("B cannot upload into A's folder", !!bWrite.error, bWrite.error ? 'refused by policy' : 'UPLOAD SUCCEEDED');
+
+// 14. the object has no public URL, signed or not
+const publicUrl = asB.storage.from('vehicle-photos').getPublicUrl(aPath).data.publicUrl;
+const anonFetch = await fetch(publicUrl);
+check('The bucket is not publicly readable', !anonFetch.ok, `public URL returned ${anonFetch.status}`);
+
+// 15. A can still sign its own object
+const { data: signed } = await asA.storage.from('vehicle-photos').createSignedUrl(aPath, 60);
+const signedFetch = signed?.signedUrl ? await fetch(signed.signedUrl) : null;
+check('A can read its own photo through a signed URL', signedFetch?.ok === true, `signed URL returned ${signedFetch?.status ?? 'none'}`);
+
+// tidy up
+await admin.storage.from('vehicle-photos').remove([aPath, `${userA.id}/intruder.png`]);
 
 console.log(`\n${failures === 0 ? 'boundary holds: all checks passed' : `${failures} CHECK(S) FAILED`}`);
 process.exit(failures === 0 ? 0 : 1);
