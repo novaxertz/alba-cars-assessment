@@ -97,6 +97,27 @@ Two smaller decisions inside that: SVG is excluded from the allowed types becaus
 carry script, and the browser's filename is never used for the stored path — it is
 attacker-controlled and only useful for its extension.
 
+### The upload that failed before any of my code ran
+
+The first real upload from a phone returned *"an unexpected response was received from
+the server"*, and the server logs showed nothing at all — no error, no invocation.
+
+That absence was the clue. A Server Action body is capped at **1MB** by default in Next
+and around **4.5MB** by the platform, so the photo was rejected at the edge before the
+function existed. My own message promising "up to 5MB" was wrong twice over.
+
+Fixed in two layers, deliberately:
+
+- **The browser downscales to 1800px before sending.** This is the actual fix — a 6MB
+  photo becomes a few hundred KB, so the limit stops being something to negotiate with.
+- **The server re-encodes anyway.** Canvas re-encoding drops EXIF as a side effect, but
+  that is not relied upon: anything the browser does is a convenience, and the guarantee
+  has to live somewhere the user cannot reach. Post to the action directly with a
+  GPS-laden original and it is still stripped.
+
+Worth recording that **it only failed on a real device.** Every test until then used
+small generated images, which sailed under a limit I did not know existed.
+
 ## Hard parts / dead ends
 
 ### Row-level security locked out my own trigger
@@ -169,6 +190,13 @@ unit the dashboard exists to surface. The bucket counts from
 `inventory_ageing_summary()` sum to 9, matching the 9 unsold vehicles — the sold car is
 correctly excluded from the summary while remaining in the view.
 
+**EXIF stripping, on the real path.** Uploaded a phone photo through the deployed app,
+then downloaded the stored object with the service key and inspected it two ways: sharp's
+metadata parse, and a raw byte scan for `Exif`, `GPS` and device-manufacturer strings.
+Both came back clean, for the full image and the thumbnail. The result is 1350x1800 and
+upright, which also confirms the orientation tag was applied before it was discarded.
+517KB stored, 48KB thumbnail.
+
 **The trigger.** 10 `price_changes` rows exist after seeding, none written by hand. The
 seed applies markdowns as ordinary updates, so the history was produced by the same
 path the live app will use.
@@ -198,9 +226,8 @@ test that found the trigger bug above — the seed could never have found it.
   one excellent theme beats two mediocre ones inside the time-box.
 - **No realtime.** Two open tabs will not sync until revalidation. Deliberate: a pricing
   review is a thing you sit down and do, not a live feed.
-- **No image processing on upload** — no resize, no thumbnail, no EXIF stripping. A
-  phone photo is stored exactly as uploaded, and EXIF can carry GPS coordinates. First
-  thing I would add.
+- **No face or numberplate blurring.** A forecourt photo can catch a passer-by or a
+  plate. Metadata is handled; pixels are not.
 - **Dealer settings have no UI.** The daily holding rate is seeded and editable in the
   database only.
 - **Charts animate in on load.** Mid-animation the plot area looks empty, which reads as

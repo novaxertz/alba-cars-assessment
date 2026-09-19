@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useActionState, useRef } from 'react';
+import { useActionState, useRef, useState } from 'react';
 import { deleteVehiclePhoto, setCoverPhoto, uploadVehiclePhoto, type ActionState } from '@/app/actions';
 import { PhotoPlaceholder } from './ui';
 import type { SignedPhoto } from '@/lib/types';
@@ -14,8 +14,48 @@ import type { SignedPhoto } from '@/lib/types';
  * why `unoptimized` is set on the images: Next's optimiser would need to fetch and
  * cache them, which defeats the point of a short-lived URL.
  */
+/**
+ * Downscale in the browser before the file is sent.
+ *
+ * Not an optimisation - a correctness fix. A Server Action body is capped at 1MB by
+ * Next (raised here to 4MB) and around 4.5MB by the platform, so a modern phone photo is
+ * rejected before any server code runs: the browser reports an "unexpected response" and
+ * nothing appears in the logs, because no function was ever invoked. That is exactly how
+ * this failed the first time it was tried on a real device.
+ *
+ * Drawing to a canvas and re-encoding also drops EXIF as a side effect, but that is NOT
+ * relied on - the server re-encodes with sharp regardless. Anything the browser does is
+ * a convenience; the guarantee has to live somewhere the user cannot reach.
+ */
+async function downscale(file: File, maxEdge = 1800): Promise<File> {
+  if (!file.type.startsWith('image/')) return file;
+
+  const bitmap = await createImageBitmap(file).catch(() => null);
+  if (!bitmap) return file; // let the server reject it with a real message
+
+  const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
+  const width = Math.round(bitmap.width * scale);
+  const height = Math.round(bitmap.height * scale);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return file;
+  ctx.drawImage(bitmap, 0, 0, width, height);
+  bitmap.close();
+
+  const blob = await new Promise<Blob | null>((resolve) =>
+    canvas.toBlob(resolve, 'image/jpeg', 0.85),
+  );
+  if (!blob) return file;
+
+  return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
+}
+
 export function Photos({ vehicleId, photos }: { vehicleId: string; photos: SignedPhoto[] }) {
   const [state, action, pending] = useActionState(uploadVehiclePhoto, null as ActionState);
+  const [preparing, setPreparing] = useState(false);
   const form = useRef<HTMLFormElement>(null);
 
   return (
@@ -75,7 +115,16 @@ export function Photos({ vehicleId, photos }: { vehicleId: string; photos: Signe
 
       <form
         ref={form}
-        action={(fd) => {
+        action={async (fd) => {
+          const picked = fd.get('photo');
+          if (picked instanceof File && picked.size > 0) {
+            setPreparing(true);
+            try {
+              fd.set('photo', await downscale(picked));
+            } finally {
+              setPreparing(false);
+            }
+          }
           action(fd);
           form.current?.reset();
         }}
@@ -95,10 +144,10 @@ export function Photos({ vehicleId, photos }: { vehicleId: string; photos: Signe
         />
         <button
           type="submit"
-          disabled={pending}
+          disabled={pending || preparing}
           className="rounded-lg bg-[color:var(--ink)] px-4 py-2 text-[14px] font-medium text-white transition-all hover:bg-[#2b2b2b] active:scale-[0.985] disabled:opacity-50"
         >
-          {pending ? 'Uploading…' : 'Upload'}
+          {preparing ? 'Preparing…' : pending ? 'Uploading…' : 'Upload'}
         </button>
 
         {state && (
@@ -108,10 +157,11 @@ export function Photos({ vehicleId, photos }: { vehicleId: string; photos: Signe
         )}
 
         <p className="w-full text-[12px] text-ink-muted">
-          JPEG, PNG or WebP, up to 5MB. Resized to 1600px and re-encoded on upload, which
-          strips EXIF — a phone photo taken on the forecourt carries its coordinates, and
-          those are not ours to publish. Stored in a private bucket and served through
-          links that expire after an hour, never a public URL.
+          JPEG, PNG or WebP. Large photos are downscaled in the browser before sending,
+          then resized and re-encoded again on the server — which strips EXIF, because a
+          phone photo taken on the forecourt carries its coordinates and those are not
+          ours to publish. Stored in a private bucket and served through links that
+          expire after an hour, never a public URL.
         </p>
       </form>
     </section>

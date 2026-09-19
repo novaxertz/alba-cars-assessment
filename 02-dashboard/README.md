@@ -144,6 +144,13 @@ Ownership on both tables is `owner_id → auth.users.id`.
 
 **One storage bucket: `vehicle-photos`, and it is private.**
 
+Uploads are re-encoded before they are stored, which strips EXIF. A photo taken on a
+phone on the forecourt carries the coordinates of the forecourt, the device model and the
+time — none of which belong in a listing. Verified on a real upload by downloading the
+stored object and scanning it both with an image parser and for the raw `Exif`, `GPS` and
+manufacturer byte strings; none are present. `.rotate()` runs first so the picture is
+still the right way up once the orientation tag is gone.
+
 A public bucket is one line less work and means every photo on every dealer's lot is
 readable by anyone who guesses a URL — which quietly undoes the boundary the rest of
 this schema spends its effort enforcing. Images are served through signed URLs generated
@@ -154,6 +161,8 @@ per request, which expire after an hour and are never persisted.
 | Visibility | private |
 | Size limit | 5MB |
 | Allowed types | `image/jpeg`, `image/png`, `image/webp` — **no SVG**, which can carry script |
+| Processing | Downscaled in the browser, then re-encoded server-side with sharp: 1600px long edge, plus a 480px thumbnail |
+| Metadata | **Stripped.** Re-encoding produces a new file from the pixels, so EXIF — including GPS — does not survive |
 | Path convention | `<owner_id>/<vehicle_id>/<random>.<ext>` |
 
 Ownership rides on the path: the storage policies read the first segment with
@@ -317,14 +326,16 @@ you judge the app.
 - **No dark mode.** A second palette validated against a dark surface is real work, and
   I would rather ship one excellent theme than two mediocre ones.
 - **Photos are served with `unoptimized`.** Next's image optimiser would need to fetch
-  and cache them, which defeats the point of a URL that expires. The cost is that a
-  large upload is served at full size.
+  and cache them, which defeats the point of a URL that expires. The uploads are already
+  resized to 1600px on the long edge, so there is no full-size original to serve.
 - **A signed URL is a bearer token for its lifetime.** Anyone who obtains one can read
   that object for an hour. The alternative is proxying every image byte through the app,
   which is the wrong trade for stock photography.
-- **No image processing.** No resizing, no thumbnails, no EXIF stripping — a phone photo
-  is stored as uploaded, and EXIF can carry GPS coordinates. That is the first thing I
-  would add.
+- **No face or numberplate blurring.** A forecourt photo can catch a passer-by or a
+  plate. EXIF is handled; pixels are not.
+- **Upload is capped by the platform, not by us.** A Server Action body is limited to
+  around 4.5MB. The browser downscales first so this is rarely reached, but a very large
+  image on a device where `createImageBitmap` is unavailable would still fail.
 - **No realtime.** Open two tabs and the second will not update until it revalidates.
   Deliberate — see the backend choice above.
 - **Dealer settings have no UI yet.** The daily holding rate is seeded and editable in
