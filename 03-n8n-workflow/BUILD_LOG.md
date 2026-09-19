@@ -137,24 +137,40 @@ when it rotates, three chances to miss one.
 three paths. The main workflow contains **no webhook URL at all**, which is a better
 outcome than the bonus point that prompted it.
 
-### An LLM call that succeeded and returned nothing
+### An LLM call that succeeded and returned nothing, and two wrong diagnoses
 
 The first run with Gemini attached produced a perfect digest with no brief on top, no
-error anywhere, and a green tick. The fallback did exactly what it was built to do, and
-that is precisely what made it hard to notice.
+error anywhere, and a green tick. The fallback did exactly what it was built to do,
+which is precisely what made it hard to notice.
 
-Cause: `gemini-2.5-flash` is a **thinking model**, and its reasoning tokens come out of
-the same `maxOutputTokens` budget I had capped at 200. The budget was spent before the
-model wrote a visible word, so the call returned empty rather than failing. Raised to
-2000.
+**My first theory was wrong.** I reasoned that 2.5-series models are thinking models,
+that their reasoning tokens come out of the same `maxOutputTokens` budget, and that my
+cap of 200 was being consumed before the model wrote a visible word. Plausible, and the
+digest still came back without a brief after raising it to 2000. (The cap stayed at
+2000, which is right for a thinking model regardless — it just was not the bug.)
 
-I also had the model name wrong — `models/gemini-2.0-flash`, which the node flagged. The
-dropdown queries the account, so the live list is the source of truth, and it proved the
-credential worked before the workflow ever ran.
+**The second theory was also wrong**, though closer. I assumed the model name had
+reverted to the retired `models/gemini-2.0-flash` I had hard-coded. It had not; the
+field read `models/gemini-2.5-flash` exactly as selected.
 
-The fallback now records **why** it fell back in the node output — model errored, empty,
-too short, too long — because "the brief just isn't there" is not something anyone can
-debug from a Discord message.
+**The actual cause** only appeared once I stopped guessing and read the node's own output
+panel: `The resource you are requesting could not be found` — Google's 404 for an unknown
+model. The node prepends `models/` itself, so a value taken from its own dropdown (which
+lists them *with* the prefix) becomes `models/models/gemini-2.5-flash`. Entering the bare
+`gemini-2.5-flash` fixed the 404 — and then that model turned out not to be available on
+this key either, so the account's current model was used instead.
+
+So: the node's dropdown offers values the node cannot consume. Worth knowing for anyone
+importing this workflow, and it is in the README.
+
+Two lessons kept from this, both cheap and both mine:
+
+- **I guessed twice before looking.** The output panel answered it in one glance. Each
+  guess cost a round trip and produced a confident, wrong explanation — one of which I
+  had already written into this log as fact and had to correct.
+- **The fallback now records why it fell back** in the node output — model errored,
+  empty, too short, too long — because "the brief just isn't there" is not something
+  anyone can debug from a Discord message.
 
 ## How I verified it works
 

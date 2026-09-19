@@ -114,14 +114,21 @@ chances to miss one. The main workflow now contains no webhook URL at all.
 [aistudio.google.com/apikey](https://aistudio.google.com/apikey) — the free tier is
 enough for one call per night.
 
-Then open the **Gemini** node and check the model against the dropdown: it queries your
-account, so that list is the source of truth rather than whatever this file says.
+Then open the **Gemini** node and set the model. Two things to know, both of which cost
+me several runs:
 
-> `maxOutputTokens` is deliberately 2000, not a tight 200. The 2.5-series are *thinking*
-> models and their reasoning tokens come out of the same budget — a small cap can be
-> consumed entirely before the model writes a visible word, and the call then returns
-> empty **without erroring**. That is exactly how it failed the first time here: the
-> digest sent perfectly, with no brief and no error anywhere.
+> **Enter the bare model id, with no `models/` prefix** — for example `gemini-2.5-flash`,
+> not `models/gemini-2.5-flash`. The node's own dropdown lists them *with* the prefix and
+> the node adds it again, producing `models/models/…`, which Google answers with
+> `The resource you are requesting could not be found`. Use the **Expression** toggle to
+> type the bare id.
+>
+> **Model availability varies by key.** The dropdown lists what your account can reach,
+> so treat it as the source of truth for *which* models exist — just strip the prefix
+> before using one. Whatever this file names may not be available to you.
+
+`maxOutputTokens` is set to 2000 rather than a tight 200, because the thinking-capable
+models spend part of that budget on reasoning before writing anything.
 
 ### 5. Import and wire up
 
