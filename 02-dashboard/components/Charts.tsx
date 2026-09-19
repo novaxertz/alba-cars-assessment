@@ -7,8 +7,8 @@ import {
 import { aed, aedCompact, bucketColor, bucketLabel, SERIES, type Bucket } from '@/lib/format';
 import type { SummaryRow } from '@/lib/types';
 
-const AXIS = { stroke: '#c3c2b7', fontSize: 12, fill: '#898781' };
-const AXIS_TITLE = { fill: '#898781', fontSize: 11 };
+const AXIS = { stroke: '#c3c2b7', fontSize: 12, fill: '#706e68' };
+const AXIS_TITLE = { fill: '#706e68', fontSize: 11 };
 
 function TooltipCard({ title, rows }: { title: string; rows: [string, string][] }) {
   return (
@@ -77,7 +77,7 @@ export function AgeingChart({ data }: { data: SummaryRow[] }) {
             dataKey="capital_aed"
             position="top"
             offset={8}
-            fill="#898781"
+            fill="#706e68"
             fontSize={11}
             formatter={(v) => aedCompact(Number(v)).replace(' AED', '')}
           />

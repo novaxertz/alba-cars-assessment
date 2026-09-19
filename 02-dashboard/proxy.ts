@@ -53,5 +53,7 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
+  // robots.txt is excluded deliberately: redirecting it to /sign-in served HTML where a
+  // plain-text file belongs, which Lighthouse reads as an invalid robots.txt.
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|robots.txt|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
 };
