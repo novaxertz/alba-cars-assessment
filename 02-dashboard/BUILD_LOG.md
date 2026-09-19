@@ -315,7 +315,27 @@ Re-running PageSpeed also returned `NO_FCP` three times across the session — a
 their side, not the app's: the page renders in a browser and serves 16 KB of HTML on
 request. It eventually ran clean.
 
-**Final: 02 is 100 / 100 / 100 / 100 on mobile; 01 is 97 / 100 / 100 / 100.**
+**Then the same bug a third time.** With the scores green, the remaining insights were
+worth a look rather than a shrug:
+
+- **Render-blocking stylesheet.** Real, and ours. 6.6 KB of Tailwind held up the first
+  paint for a whole round trip. `experimental.inlineCss` puts it in the HTML instead. On
+  01 that moved FCP 1.4 s → 0.8 s and Speed Index 4.1 s → 1.1 s, and performance 97 → 99.
+- **Legacy JavaScript, 14 KB.** *Not* ours. Guarded polyfills bundled into the framework
+  chunk. I checked instead of assuming: rebuilt with an explicitly modern `browserslist`
+  (Chrome 120+, where every one of those features is native) and the polyfills were still
+  in the output. They are Next's, so they stay, named.
+- **Unused JavaScript, ~51 KB.** Framework and router code shipped but not run during load.
+  Reducing it means shipping fewer client components.
+- **`llms.txt` "does not follow recommendations"** — and this is the robots.txt bug for the
+  third time. There was no `llms.txt`; the proxy was answering the request with a 307 to
+  `/sign-in`, so Lighthouse parsed the sign-in page as Markdown and reported a missing H1.
+  A catch-all redirect answers every request, which is not the same as answering it
+  correctly. Both apps now serve a real `llms.txt`, and 02 excludes the path from the
+  matcher.
+
+**Final, measured on mobile: 02 is 100 / 100 / 100 / 100 with agentic browsing 3/3;
+01 is 99 / 100 / 100 / 100 with 3/3.**
 
 ## Known limitations
 

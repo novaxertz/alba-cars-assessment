@@ -321,8 +321,8 @@ rewrite a timestamp.
 ## Measured
 
 PageSpeed Insights, mobile profile (emulated Moto G Power, slow 4G), on the deployed app:
-**100 performance, 100 accessibility, 100 best practices, 100 SEO.** FCP 0.8 s, LCP 1.4 s,
-TBT 10 ms, CLS 0. Re-run it yourself:
+**100 performance, 100 accessibility, 100 best practices, 100 SEO**, and 3/3 on the new
+agentic-browsing checks. FCP 0.8 s, LCP 1.4 s, TBT 10 ms, CLS 0. Re-run it yourself:
 [pagespeed.web.dev](https://pagespeed.web.dev/analysis?url=https://alba-lot-dashboard.vercel.app/).
 
 It did not start there. The first run scored 95 accessibility and 91 SEO, and both
@@ -330,7 +330,12 @@ deductions were real defects: muted text at 3.5:1 where WCAG AA wants 4.5:1, and
 `/robots.txt` the auth proxy was redirecting to `/sign-in`, so a crawler asking for a
 plain-text file got HTML. Both fixed; the story is in [BUILD_LOG.md](./BUILD_LOG.md).
 
-`robots.txt` allows `/sign-in` and disallows the rest. It is a signal, not a boundary —
+The audit is of `/sign-in`, since PageSpeed follows the redirect and everything else is
+behind auth. Note also that a run occasionally comes back `NO_FCP` — a failure on their
+side, not the app's; re-running it clears.
+
+`robots.txt` allows `/sign-in` and disallows the rest, and `llms.txt` describes the app
+for agent crawlers. It is a signal, not a boundary —
 nothing behind the door is protected by it. The auth proxy and the row-level policies do
 that work.
 

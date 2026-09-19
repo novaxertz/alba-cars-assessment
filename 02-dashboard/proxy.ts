@@ -53,7 +53,9 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // robots.txt is excluded deliberately: redirecting it to /sign-in served HTML where a
-  // plain-text file belongs, which Lighthouse reads as an invalid robots.txt.
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|robots.txt|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
+  // robots.txt and llms.txt are excluded deliberately. The proxy matched them, so a
+  // crawler asking for a plain-text file got a 307 to /sign-in and an HTML page back -
+  // which Lighthouse read as an invalid robots.txt and a malformed llms.txt. A catch-all
+  // redirect answers every request; that is not the same as answering it correctly.
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|robots.txt|llms.txt|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
 };

@@ -1,0 +1,18 @@
+# Lot — inventory ageing and price decay
+
+> A used-car dealer's dashboard: what each unsold vehicle is costing in carrying charges,
+> how long it has sat, and how far its asking price has fallen since it was listed. Built
+> for the ALBA CARS engineering assessment.
+
+Everything except the sign-in page is behind authentication, and each dealer can read only
+their own rows. There is nothing here to crawl.
+
+## Pages
+
+- [Sign in](https://alba-lot-dashboard.vercel.app/sign-in): the only publicly reachable page.
+
+## Source and documentation
+
+- [Repository](https://github.com/novaxertz/alba-cars-assessment): all three assessment projects.
+- [README](https://github.com/novaxertz/alba-cars-assessment/blob/main/02-dashboard/README.md): data model, security boundary, how to run it.
+- [Build log](https://github.com/novaxertz/alba-cars-assessment/blob/main/02-dashboard/BUILD_LOG.md): decisions, bugs and known limitations.

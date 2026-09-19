@@ -288,14 +288,26 @@ and no component library. The page itself is statically prerendered; only the AP
 is dynamic.
 
 **Lighthouse (PageSpeed Insights, mobile, emulated Moto G Power on slow 4G):**
-performance **97**, accessibility **100**, best practices **100**, SEO **100**.
-FCP 1.4 s, LCP 2.0 s, TBT 0 ms, CLS 0, Speed Index 4.1 s. Re-run it here:
-[pagespeed.web.dev](https://pagespeed.web.dev/analysis?url=https://alba-second-opinion.vercel.app).
+performance **99**, accessibility **100**, best practices **100**, SEO **100**, agentic
+browsing **3/3**. FCP 0.8 s, LCP 2.0 s, TBT 40 ms, CLS 0, Speed Index 1.1 s. Re-run it
+here: [pagespeed.web.dev](https://pagespeed.web.dev/analysis?url=https://alba-second-opinion.vercel.app).
 
-The three points the report still docks are framework-level, not app code: a
-render-blocking stylesheet (~300 ms), Next's legacy-browser polyfill chunk (14 KB) and
-unused JavaScript in the framework bundle (53 KB). Chasing them means fighting the
-framework's own output, which is not where the remaining time belongs.
+It started at 97 with a render-blocking stylesheet. The whole stylesheet is 6.6 KB of
+Tailwind — atomic CSS stays small no matter how much UI is built on it — so it is now
+inlined into the HTML (`experimental.inlineCss`), which removes the round trip entirely.
+FCP went 1.4 s → 0.8 s and Speed Index 4.1 s → 1.1 s. The trade is that returning visitors
+re-download it instead of using a cached file; for a demo opened once on a phone, the
+first paint is worth more.
+
+What is left is Next's own output, not app code:
+
+- **Legacy JavaScript, 14 KB.** Guarded polyfills (`Array.prototype.at`, `.flat`,
+  `Symbol.prototype.description`) bundled into the framework chunk. Verified this is not
+  our transpile target by rebuilding with an explicitly modern `browserslist`
+  (Chrome 120+) — the polyfills are still there, because they are Next's, not ours.
+- **Unused JavaScript, 53 KB.** Framework and router code that is shipped but not executed
+  during first load. Reducing it means shipping fewer client components, and the
+  interactive parts here are the product.
 
 **What I would add with more time:** an automated test suite around the upstream
 normalisation (the `ErrorCode` branches and the boolean/string coercion are exactly the
@@ -343,5 +355,6 @@ two datasets rather than an inference about cause.
 - **Plain-language summaries are off** without a model API key.
 - **No automated tests.** Verified by hand, case by case, as recorded above. This is the
   first thing I would fix.
-- **Lighthouse's remaining performance points are framework-level** (render-blocking
-  CSS, polyfill chunk, unused framework JavaScript) and were left alone deliberately.
+- **The last point of Lighthouse performance is Next's own output** — bundled polyfills
+  and unused framework JavaScript — and was left alone deliberately. The render-blocking
+  stylesheet, which *was* ours to fix, is fixed.
