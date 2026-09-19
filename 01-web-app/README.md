@@ -72,6 +72,28 @@ Dubai dealer that is a genuine constraint, not a footnote.
 
 ---
 
+## API choice
+
+**NHTSA's public vehicle data**, in three parts: vPIC (VIN decode), the recalls API, and
+the complaints API. Free, public, no key, no signup — you can clone this repo and run it
+with nothing configured.
+
+Why this one: the three datasets are published *separately*, and the answer worth having
+only exists when you cross-reference them. NHTSA will tell you what a manufacturer
+admitted, and it will tell you what owners reported, but it will not tell you which
+reported faults were never covered by a campaign. That gap is the product, and it does
+not exist in any single endpoint.
+
+It is also the rare public API where the data has consequences. A wrong movie poster is
+a bug; a wrong answer about a "do not drive" recall is worse than no answer, which is why
+[what it cannot tell you](#read-this-first--what-it-cannot-tell-you) is the first section
+of this README rather than a footnote.
+
+Because there is no key to hide, the backend earns its place on the other three counts
+instead: fusing the calls that cannot compose in the browser, caching a 2.4MB response
+so the client never downloads it, and failing gracefully when an upstream does something
+strange — which, as [API quirks](#api-quirks-worth-knowing) records, it does.
+
 ## Architecture
 
 ```
