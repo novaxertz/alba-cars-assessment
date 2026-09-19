@@ -324,6 +324,13 @@ Small, but it is the kind of detail that makes a page look machine-generated.
   there the token was 5.3:1 on the canvas but 4.38:1 on the lifted surface, so it went
   the other way, to `#8e8c86`. Same token name, opposite direction — worth checking
   rather than assuming.
+- **The SEO fix that made things worse.** `/robots.txt` was flagged, so I shipped a
+  disallow-all one to both apps. Valid file, original complaint gone — and a *different*
+  audit failed: "page is blocked from indexing", which took 01's SEO from 100 to **63**.
+  Blocking crawlers was never the goal. 01 now allows everything; 02 allows its sign-in
+  page and disallows the rest. Re-measured after: 01 back to 97 / 100 / 100 / 100 and 02
+  at 100 / 100 / 100 / 100. Fixing a flagged audit by satisfying its letter is how you
+  fail the next one.
 - **The bar labels had the same problem in reverse.** Putting the vehicle count inside
   the bar in white is 2.1:1 on the lightest step of the ageing ramp. No single ink colour
   clears 4.5:1 against all four fills, so both labels moved above the bar, onto the card

@@ -320,15 +320,19 @@ rewrite a timestamp.
 
 ## Measured
 
-PageSpeed Insights, mobile profile (emulated Moto G Power, slow 4G), on the deployed
-sign-in page: performance **100**, best practices **100**. FCP 0.8 s, LCP 1.4 s,
-TBT 10 ms, CLS 0.
+PageSpeed Insights, mobile profile (emulated Moto G Power, slow 4G), on the deployed app:
+**100 performance, 100 accessibility, 100 best practices, 100 SEO.** FCP 0.8 s, LCP 1.4 s,
+TBT 10 ms, CLS 0. Re-run it yourself:
+[pagespeed.web.dev](https://pagespeed.web.dev/analysis?url=https://alba-lot-dashboard.vercel.app/).
 
-The same run found two real defects, both fixed: muted text at 3.5:1 where WCAG AA wants
-4.5:1 (accessibility scored 95), and a `/robots.txt` that the auth proxy was redirecting
-to `/sign-in`, so a crawler got HTML where plain text belongs (SEO scored 91). Details in
-[BUILD_LOG.md](./BUILD_LOG.md). Re-run it yourself:
-[pagespeed.web.dev](https://pagespeed.web.dev/analysis?url=https://alba-lot-dashboard.vercel.app/sign-in).
+It did not start there. The first run scored 95 accessibility and 91 SEO, and both
+deductions were real defects: muted text at 3.5:1 where WCAG AA wants 4.5:1, and a
+`/robots.txt` the auth proxy was redirecting to `/sign-in`, so a crawler asking for a
+plain-text file got HTML. Both fixed; the story is in [BUILD_LOG.md](./BUILD_LOG.md).
+
+`robots.txt` allows `/sign-in` and disallows the rest. It is a signal, not a boundary —
+nothing behind the door is protected by it. The auth proxy and the row-level policies do
+that work.
 
 ## Known limitations
 

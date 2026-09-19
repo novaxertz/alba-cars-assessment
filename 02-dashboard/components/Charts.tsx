@@ -115,6 +115,11 @@ type Series = { id: string; label: string; cost: number; points: { day: number; 
  * Legend plus a shared-axis table below carry identity, since three of the categorical
  * slots sit under 3:1 against this surface. Each line also ends in its own percentage,
  * which is the number the legend cannot give you.
+ *
+ * Two of those lines end mid-plot, so their labels landed on top of whichever line was
+ * still running. Each label now sits above its final point and is painted with a
+ * surface-coloured halo underneath the glyphs (`paint-order: stroke`), which knocks a
+ * clean gap in any line it crosses instead of fighting it for the same pixels.
  */
 export function DecayChart({ series }: { series: Series[] }) {
   const indexed = series.map((s) => {
@@ -206,11 +211,15 @@ export function DecayChart({ series }: { series: Series[] }) {
                   if (index !== s.points.length - 1 || x == null || y == null) return null;
                   return (
                     <text
-                      x={Number(x) + 7}
-                      y={Number(y) + 4}
+                      x={Number(x) + 8}
+                      y={Number(y) - 8}
                       fill={SERIES[i % SERIES.length]}
                       fontSize={11}
                       fontWeight={500}
+                      stroke="var(--surface)"
+                      strokeWidth={3.5}
+                      strokeLinejoin="round"
+                      paintOrder="stroke"
                     >
                       {Math.round(Number(value))}%
                     </text>

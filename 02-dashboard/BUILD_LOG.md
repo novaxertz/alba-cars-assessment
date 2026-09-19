@@ -297,15 +297,25 @@ practices 100, but **accessibility 95 and SEO 91** — and both were real:
   is 2.1:1 against the lightest step of the ageing ramp, and no single ink colour clears
   4.5:1 against all four fills. Both labels moved above the bar, onto the card surface.
 - **`/robots.txt` was invalid.** The auth proxy matched it, so a crawler asking for a
-  plain-text file got a 307 to `/sign-in` and an HTML page. Both apps now serve a
-  disallow-all `robots.txt`, and 02 excludes the path from the proxy matcher. This is the
-  same shape of bug as the others in this log: the thing reported success (a 307 is a
-  perfectly good redirect) while doing the wrong thing for the caller who asked.
+  plain-text file got a 307 to `/sign-in` and an HTML page. The path is now excluded from
+  the proxy matcher. This is the same shape of bug as the others in this log: the thing
+  reported success (a 307 is a perfectly good redirect) while doing the wrong thing for
+  the caller who asked.
 
-Re-running PageSpeed to confirm the fixes returned `NO_FCP` twice in a row — a failure on
-their side, not the app's: the deployed page renders fine in a browser and serves 16 KB of
-HTML on request. Verified the fixes directly instead: `robots.txt` returns plain text over
-HTTPS, and the contrast ratios are computed above.
+**Then I broke the SEO score myself.** The first fix shipped `Disallow: /` on both apps —
+which is a *valid* robots.txt, so the original complaint went away, and Lighthouse
+promptly failed a different audit: "page is blocked from indexing". 01's SEO went from
+100 to **63**. Blocking crawlers was never the goal; having a valid file was. 01 is a
+public demo, so it allows everything. 02 allows `/sign-in` and disallows the rest, which
+is honest about intent without failing the audit on the only page a crawler can reach.
+Worth saying plainly: robots.txt is doing no security work here at all. The proxy and the
+row-level policies are. It only has to be *correct*.
+
+Re-running PageSpeed also returned `NO_FCP` three times across the session — a failure on
+their side, not the app's: the page renders in a browser and serves 16 KB of HTML on
+request. It eventually ran clean.
+
+**Final: 02 is 100 / 100 / 100 / 100 on mobile; 01 is 97 / 100 / 100 / 100.**
 
 ## Known limitations
 
@@ -332,8 +342,6 @@ HTTPS, and the contrast ratios are computed above.
   plate. Metadata is handled; pixels are not.
 - **Dealer settings have no UI.** The daily holding rate is seeded and editable in the
   database only.
-- **PageSpeed was not re-run after the fixes.** Two consecutive `NO_FCP` failures on
-  their side; the underlying changes are verified directly rather than by a fresh score.
 - **Charts animate in on load.** Mid-animation the plot area looks empty, which reads as
   a broken chart for a moment. Shortening or removing the entry animation would fix it;
   left as is because the motion is worth more than the half-second.
