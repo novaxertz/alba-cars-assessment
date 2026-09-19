@@ -55,7 +55,7 @@ export function Lookup({ seed }: { seed?: { vin: string; label: string } | null 
   const [reading, setReading] = useState<{ vin: string; component?: string } | null>(null);
   const [, startTransition] = useTransition();
   const lastRequested = useRef<string>('');
-  const arrivingHeader = useRef<HTMLHeadingElement | null>(null);
+  const resultsPanel = useRef<HTMLDivElement | null>(null);
 
   const run = useCallback(async (raw: string, { pushUrl = true } = {}) => {
     const candidate = raw.trim().toUpperCase();
@@ -180,17 +180,7 @@ export function Lookup({ seed }: { seed?: { vin: string; label: string } | null 
           it means the reader is never looking at an anonymous loading state. */}
       {loading && seed && !data && (
         <section className="panel p-4 sm:p-5">
-          <h2
-            ref={(el) => {
-              arrivingHeader.current = el;
-              // Play as soon as the element exists, which is the same frame the DOM
-              // changed - any later and the invert would be visible as a jump.
-              if (el) playFrom(seed.vin, el);
-            }}
-            className="text-[17px] font-semibold tracking-tight"
-          >
-            {seed.label}
-          </h2>
+          <h2 className="text-[17px] font-semibold tracking-tight">{seed.label}</h2>
           <p className="tnum mt-1 font-mono text-[12px] text-ink-muted">{seed.vin}</p>
         </section>
       )}
@@ -233,7 +223,15 @@ export function Lookup({ seed }: { seed?: { vin: string; label: string } | null 
       )}
 
       {!loading && data && (
-        <>
+        <div
+          ref={(el) => {
+            resultsPanel.current = el;
+            // The whole result travels, not just the heading - the eye follows the
+            // large moving object, and a 30px text nudge is not a transition.
+            if (el) playFrom(data.vehicle.vin, el);
+          }}
+          className="space-y-4"
+        >
           <Verdict recalls={data.recalls} />
 
           <section className="panel lift p-4 sm:p-5" style={{ animationDelay: '60ms' }}>
@@ -244,10 +242,7 @@ export function Lookup({ seed }: { seed?: { vin: string; label: string } | null 
                   one, because with a warm cache the lookup resolves between paints and
                   the seeded header never survives long enough to animate. playFrom
                   clears the recorded rect, so exactly one of the two plays. */}
-              <h2
-                ref={(el) => { if (el) playFrom(data.vehicle.vin, el); }}
-                className="text-[17px] font-semibold tracking-tight"
-              >
+              <h2 className="text-[17px] font-semibold tracking-tight">
                 {data.vehicle.modelYear} {data.vehicle.make} {data.vehicle.model}
               </h2>
               {cacheBadge}
@@ -369,7 +364,7 @@ export function Lookup({ seed }: { seed?: { vin: string; label: string } | null 
               ))}
             </section>
           )}
-        </>
+        </div>
       )}
 
       {!loading && !data && !failure && (

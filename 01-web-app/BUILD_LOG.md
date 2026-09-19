@@ -172,6 +172,25 @@ nothing to animate from. Instrumenting the module showed `pendingKey: null` at t
 moment of play, which is what pointed at it. The guard now runs before the origin is
 consumed: whoever can actually animate gets it.
 
+### An animation that technically worked and could not be seen
+
+With the FLIP finally firing, the honest feedback was: *I can't tell there's an
+animation.* That was correct, and the measurements said why.
+
+I had morphed the `<h2>` alone. It moved about 30px while the panel around it, the
+verdict card, the charts and the recall list all simply appeared. A shared-element
+transition on paper; a twitch in practice. The eye follows the large moving object, so
+the large object has to be what moves.
+
+Moving the whole result panel then produced a second, worse bug — a start position
+**1,591px** off-screen. Matching the centres of a 66px row and a 3,000px panel puts the
+origin far below the fold, so the panel flew up from nowhere. Aligning top edges instead
+gives 136px of travel, which reads as the row unfolding, and the distance is now capped
+at a third of the viewport for long pages.
+
+Both of those were found by reading the keyframes out of `getAnimations()`, not by
+squinting at the screen.
+
 ### Paging a large list from the server, not the browser
 
 The analysis answers "what breaks on this car". The obvious next question is "show me

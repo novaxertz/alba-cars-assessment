@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { SeverityIcon } from './icons';
-import { recordOrigin } from '@/lib/flip';
+import { playExit, recordOrigin } from '@/lib/flip';
 
 type Row =
   | { input: string; ok: true; vin: string; label: string; recallCount: number; worstSeverity: 'critical' | 'serious' | 'standard' | null; checkDigitWarning: boolean; stale: boolean }
@@ -21,7 +21,10 @@ const COLOR = { critical: 'var(--critical)', serious: 'var(--serious)', standard
 export function Sweep({ onOpenDetail }: { onOpenDetail: (vin: string, label: string) => void }) {
   // One ref per rendered row, so the clicked row's rect can be measured before the DOM
   // changes underneath it.
-  const labelRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  // One ref per row so the clicked row's rect can be measured before the DOM changes,
+  // plus the panel itself so the list can be faded out under the incoming detail.
+  const rowRefs = useRef<Record<string, HTMLLIElement | null>>({});
+  const panelRef = useRef<HTMLElement | null>(null);
   const [raw, setRaw] = useState('');
   const [rows, setRows] = useState<Row[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -111,7 +114,7 @@ export function Sweep({ onOpenDetail }: { onOpenDetail: (vin: string, label: str
       )}
 
       {!loading && rows && (
-        <section className="panel lift overflow-hidden" aria-label="Sweep results">
+        <section ref={panelRef} className="panel lift overflow-hidden" aria-label="Sweep results">
           <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-hairline p-4">
             <h2 className="text-[15px] font-semibold">
               {flagged} of {rows.length} {flagged === 1 ? 'car has' : 'cars have'} open campaigns
@@ -126,7 +129,11 @@ export function Sweep({ onOpenDetail }: { onOpenDetail: (vin: string, label: str
 
           <ul className="divide-y divide-[color:var(--hairline)]">
             {rows.map((row, i) => (
-              <li key={row.input + i} className="flex flex-wrap items-center gap-x-4 gap-y-1 p-4">
+              <li
+                key={row.input + i}
+                ref={(el) => { if (row.ok) rowRefs.current[row.vin] = el; }}
+                className="flex flex-wrap items-center gap-x-4 gap-y-1 p-4"
+              >
                 {row.ok ? (
                   <>
                     <span
@@ -135,12 +142,7 @@ export function Sweep({ onOpenDetail }: { onOpenDetail: (vin: string, label: str
                     >
                       <SeverityIcon level={row.worstSeverity ?? 'clear'} />
                     </span>
-                    {/* The element that morphs into the detail header. Its position is
-                        measured at click time - see lib/flip.ts. */}
-                    <div
-                      ref={(el) => { labelRefs.current[row.vin] = el; }}
-                      className="min-w-0 flex-1"
-                    >
+                    <div className="min-w-0 flex-1">
                       <p className="text-[14px] font-medium">{row.label}</p>
                       <p className="tnum font-mono text-[12px] text-ink-muted">{row.vin}</p>
                     </div>
@@ -152,7 +154,10 @@ export function Sweep({ onOpenDetail }: { onOpenDetail: (vin: string, label: str
                     </span>
                     <button
                       onClick={() => {
-                        recordOrigin(row.vin, labelRefs.current[row.vin]);
+                        // Measure the row, then get the list out of the way. The detail
+                        // panel animates in from exactly this rect - see lib/flip.ts.
+                        recordOrigin(row.vin, rowRefs.current[row.vin]);
+                        playExit(panelRef.current);
                         onOpenDetail(row.vin, row.label);
                       }}
                       className="text-[13px] text-ink-muted underline decoration-dotted underline-offset-4 transition-colors hover:text-ink"

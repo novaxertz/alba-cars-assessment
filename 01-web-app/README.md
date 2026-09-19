@@ -143,16 +143,28 @@ production and would rather defend a deliberate choice than pad the stack.
   them yields "35% of complaints concern components with no campaign behind them",
   which is the actual product.
 - **Shareable, URL-synced state** — the VIN lives in the query string.
-- **A signature animation** — opening a car from the lot sweep morphs the row into the
-  detail header rather than cutting between two screens. It is FLIP: the row's rect is
-  measured at click time, the difference against the header's final rect is inverted
-  with a transform, and that is played back to identity over 420ms. A real measurement
-  from a run: `translate3d(32px, 63.5px, 0) scale(0.714, 1)` to identity — the header
-  starts exactly where the row was.
+- **A signature animation** — opening a car from the lot sweep makes the result unfold
+  from the row you clicked, while the list fades out underneath it. It is FLIP: the
+  row's rect is measured at click time, the difference against the panel's final rect is
+  inverted with a transform, and played back to identity over 560ms on an expo-out curve
+  so it moves fast and settles. A real measurement from a run:
+  `translate3d(1px, 136px, 0) scale(0.92)` → `scale(0.985)` → identity.
+
+  Two decisions worth knowing, both made after looking at it rather than reasoning about
+  it:
+
+  - **The whole panel travels, not just the heading.** The first version morphed only
+    the `<h2>` — a shared-element transition on paper, invisible in practice, because
+    30px of text moved while everything around it simply appeared.
+  - **Top edges align, not centres.** A 66px row expanding into a 3,000px panel has its
+    centre 1,591px away; matching centres produced a flight from off-screen. Matching
+    tops makes the panel appear to unfold from where the row was. The distance is capped
+    at a third of the viewport, beyond which movement stops reading as "this became
+    that".
 
   Only `transform` and `opacity` animate, both of which the compositor owns, so no frame
   does layout work. Animating `top`/`left`/`width` to the same visual effect would lay
-  out every frame and fall off 60fps on a long sweep. It is disabled entirely under
+  out every frame and fall off 60fps on a long sweep. Disabled entirely under
   `prefers-reduced-motion`.
 - **High-performance lists** — the complaint reader. A 2016 Ford Explorer has **2,448
   complaints**, about 2.4MB of JSON from NHTSA. The browser never sees it:
