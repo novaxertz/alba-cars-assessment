@@ -141,6 +141,36 @@ The test had the same flaw in a worse place. "B is not told about A's rows" **pa
 while the socket was delivering nothing — a leak check that passes because the feature is
 broken. It is now skipped unless "B is told about its own rows" passes first.
 
+### One invisible character, valid in one transport and invalid in another
+
+With the socket authenticated, the deployed dashboard still read **Offline** while
+everything else on the page worked perfectly.
+
+The browser console had it:
+
+```
+wss://…/realtime/v1/websocket?apikey=%20eyJhbGciOi…
+```
+
+`%20`. A **leading space** in the anon key stored on the hosting platform, which I put
+there myself by extracting the value with `cut` and no trim while the local file had a
+space after the `=`.
+
+REST never noticed, because the key travels in a header and HTTP header parsing trims
+surrounding whitespace. Realtime puts it in the **query string**, where the space is
+preserved, the key is no longer the key, and the handshake is rejected. One credential,
+valid over one transport and invalid over another, because of a character that renders
+as nothing.
+
+Fixed by re-setting both public variables trimmed and redeploying. Verified by changing
+a price through the API with the page open and watching it move — down to 30,500 and back
+to 31,000 — without a refresh.
+
+A smaller lesson from the same hunt: my first check for the reverted value failed because
+`Intl.NumberFormat` renders `AED 31,000` with a non-breaking space and my pattern used an
+ordinary one. The product was fine; the test was wrong. Invisible characters twice in one
+afternoon.
+
 ## Hard parts / dead ends
 
 ### Row-level security locked out my own trigger
