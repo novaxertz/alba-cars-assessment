@@ -205,9 +205,16 @@ if (!subscribed) {
   await admin.from('vehicles').update({ mileage_km: bRow.mileage_km + 1 }).eq('id', bRow.id);
   await admin.from('vehicles').update({ mileage_km: aRow.mileage_km + 1 }).eq('id', aRow.id);
 
-  await new Promise((r) => setTimeout(r, 4000));
+  // Wait for delivery rather than guessing at it. A fixed sleep here was long enough on
+  // a fast connection and not on a slow one, which made the check fail intermittently
+  // while the boundary itself was fine - the worst kind of test, because a red line that
+  // means nothing teaches you to ignore red lines. Poll until B's own change arrives,
+  // then keep listening a moment longer so a leak of A's has a fair chance to show up.
+  const deadline = Date.now() + 15000;
+  while (!heard.own && Date.now() < deadline) await new Promise((r) => setTimeout(r, 250));
+  await new Promise((r) => setTimeout(r, 2000));
 
-  check('B is told about its own rows', heard.own, heard.own ? 'received' : 'nothing arrived');
+  check('B is told about its own rows', heard.own, heard.own ? 'received' : 'nothing arrived within 15s');
 
   // The negative check is only evidence if the positive one passed. Otherwise "no
   // leak" is indistinguishable from "the socket delivers nothing at all", and a test

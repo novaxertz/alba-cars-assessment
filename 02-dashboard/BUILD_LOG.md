@@ -337,6 +337,20 @@ worth a look rather than a shrug:
 **Final, measured on mobile: 02 is 100 / 100 / 100 / 100 with agentic browsing 3/3;
 01 is 99 / 100 / 100 / 100 with 3/3.**
 
+### A red line that meant nothing
+
+The realtime check failed on someone else's machine while passing on mine. Not a boundary
+failure — a fixed four-second sleep between writing a row and asserting it had been
+delivered. Long enough on a fast connection, not on a slow one.
+
+It waits for delivery now, polling up to fifteen seconds, then listens two seconds longer
+so a leak of the other dealer's row still has a fair chance to show up before the negative
+check runs. Ran it four times back to back: eighteen passes each time.
+
+Worth naming why this mattered rather than quietly patching it. An intermittent red line
+is worse than no test at all, because it teaches you to re-run until it turns green — and
+the whole argument of this script is that a check you would ignore is not evidence.
+
 ## Known limitations
 
 - The holding rate is a single configurable AED/day figure per dealer. Real floor-plan

@@ -37,7 +37,7 @@ than no test, so the negative one is now skipped unless the positive one holds.
 
 ```
 dealer B owns 3 vehicles; dealer A owns 11
-target row: LSGHD52H4FD10022 (19adb71b-18ca-41aa-9b8f-756ddcf2b758)
+target row: VF1RFA00X54900211 (0e4f3ce3-59c0-4178-94c8-c5ee88d6611b)
 
 PASS  A reads B's vehicles by owner_id — 0 rows
 PASS  A reads B's vehicle by its exact id — 0 rows
