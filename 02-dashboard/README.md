@@ -85,6 +85,8 @@ erDiagram
     auth_users ||--o| dealer_settings : "configures"
     auth_users ||--o{ vehicles : "owns"
     vehicles ||--o{ price_changes : "logs"
+    vehicles ||--o{ vehicle_photos : "pictured by"
+    vehicles ||--o{ markdown_recommendations : "reviewed by"
 
     profiles {
         uuid id PK_FK
@@ -123,7 +125,44 @@ erDiagram
         enum reason
         timestamptz changed_at
     }
+    vehicle_photos {
+        uuid id PK
+        uuid vehicle_id FK
+        uuid owner_id FK "defaults to auth.uid()"
+        text storage_path "unique; owner id is the first path segment"
+        text thumb_path "480px version, nullable"
+        boolean is_cover "one per vehicle, partial unique index"
+        timestamptz created_at
+    }
+    markdown_recommendations {
+        uuid id PK
+        uuid vehicle_id FK
+        uuid owner_id FK
+        date run_date "a day, not a timestamp"
+        integer days_on_lot
+        integer holding_cost_aed
+        integer current_price_aed
+        integer recommended_price_aed
+        enum severity "watch | act | urgent"
+        text rationale
+        boolean applied "nothing is applied automatically"
+        timestamptz created_at
+    }
 ```
+
+`vehicle_photos` and `markdown_recommendations` arrived after the first three migrations —
+photos with the file-storage work, recommendations when the agent in
+[`../03-n8n-workflow`](../03-n8n-workflow) needed somewhere to write. Both carry
+`owner_id` and their own RLS policies, so a dealer sees only their own, and both cascade
+on vehicle delete.
+
+Two constraints in there are load-bearing rather than decorative:
+
+- **`unique (vehicle_id, run_date)`** on recommendations is the idempotency guard. Running
+  the nightly agent twice in one day updates one row instead of writing a second, and it
+  is the *database* that enforces that, not a check inside the workflow.
+- **A partial unique index on `is_cover`** means exactly one cover photo per vehicle. Two
+  covers is not a state the data can reach.
 
 ### Field notes that matter
 
